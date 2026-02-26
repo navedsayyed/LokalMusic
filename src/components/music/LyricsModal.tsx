@@ -30,12 +30,16 @@ async function fetchFromLrcLib(artist: string, title: string): Promise<string[]>
     try {
         const cleanArtist = artist.split(',')[0].trim();
         const cleanTitle = title.replace(/\(.*?\)/g, '').replace(/&quot;/g, '"').trim();
-        const url = `https://lrclib.net/api/get?artist_name=${encodeURIComponent(cleanArtist)}&track_name=${encodeURIComponent(cleanTitle)}`;
-        const res = await fetch(url, { signal: AbortSignal.timeout(6000) });
+        // /api/search is fuzzy — finds Bollywood songs across artist name variants
+        const q = encodeURIComponent(`${cleanTitle} ${cleanArtist}`);
+        const res = await fetch(`https://lrclib.net/api/search?q=${q}`, {
+            signal: AbortSignal.timeout(7000),
+        });
         if (!res.ok) return [];
-        const json = await res.json();
-        // prefer synced lyrics (lrc format), fall back to plain text
-        const raw: string = json.syncedLyrics ?? json.plainLyrics ?? '';
+        const results: { syncedLyrics?: string; plainLyrics?: string }[] = await res.json();
+        if (!Array.isArray(results) || results.length === 0) return [];
+        const hit = results.find((r) => r.syncedLyrics || r.plainLyrics) ?? results[0];
+        const raw: string = hit.syncedLyrics ?? hit.plainLyrics ?? '';
         if (!raw) return [];
         return raw
             .split('\n')

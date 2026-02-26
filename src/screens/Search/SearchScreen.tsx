@@ -1,8 +1,9 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
+  Animated,
   FlatList,
   Image,
   Keyboard,
@@ -15,9 +16,12 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { QueueSheet } from '@/components/music/QueueSheet';
+import { SongOptionsSheet } from '@/components/music/SongOptionsSheet';
 import { useDebounce } from '@/hooks/useDebounce';
 import { usePlayer } from '@/hooks/usePlayer';
 import { searchSongs } from '@/services/api/music.api';
+import { usePlayerStore } from '@/store/player.store';
 import { useThemeStore } from '@/store/theme.store';
 import { colors } from '@/theme/colors';
 import { Song } from '@/types/music.types';
@@ -45,12 +49,45 @@ export const SearchScreen = () => {
   const [sortBy, setSortBy] = useState<SortOption>('Ascending');
   const { playFromSearch } = usePlayer();
 
+  // ─── Sheet / Queue state ────────────────────────────────────────────────────
+  const [optionsSong, setOptionsSong] = useState<Song | null>(null);
+  const [queueVisible, setQueueVisible] = useState(false);
+
+  // ─── Toast state ────────────────────────────────────────────────────────────
+  const toastOpacity = useRef(new Animated.Value(0)).current;
+  const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [toastMsg, setToastMsg] = useState('');
+
+  const showToast = (msg: string) => {
+    setToastMsg(msg);
+    if (toastTimer.current) clearTimeout(toastTimer.current);
+    Animated.sequence([
+      Animated.timing(toastOpacity, { toValue: 1, duration: 250, useNativeDriver: true }),
+    ]).start();
+    toastTimer.current = setTimeout(() => {
+      Animated.timing(toastOpacity, { toValue: 0, duration: 300, useNativeDriver: true }).start();
+    }, 3500);
+  };
+
+  // ─── Add-to-queue callbacks for SongOptionsSheet ───────────────────────────
+  const handleAddToQueue = () => {
+    if (!optionsSong) return;
+    usePlayerStore.getState().enqueueToEnd(optionsSong);
+    setOptionsSong(null);
+    showToast(`"${optionsSong.name}" added to queue`);
+  };
+
+  const handlePlayNext = () => {
+    if (!optionsSong) return;
+    usePlayerStore.getState().enqueueNext(optionsSong);
+    setOptionsSong(null);
+    showToast(`"${optionsSong.name}" plays next`);
+  };
+
+  // ─── Search ─────────────────────────────────────────────────────────────────
   useEffect(() => {
     const run = async () => {
-      if (!debouncedQuery.trim()) {
-        setResults([]);
-        return;
-      }
+      if (!debouncedQuery.trim()) { setResults([]); return; }
       try {
         setLoading(true);
         const songs = await searchSongs(debouncedQuery.trim());
@@ -81,10 +118,12 @@ export const SearchScreen = () => {
     <SafeAreaView style={[styles.safe, { backgroundColor: palette.background }]}>
       <TouchableWithoutFeedback onPress={() => { Keyboard.dismiss(); setSortOpen(false); }}>
         <View style={{ flex: 1 }}>
-          {/* Tab-style header: big title + search bar below */}
+          {/* Page title */}
           <View style={styles.titleRow}>
             <Text style={[styles.pageTitle, { color: palette.text }]}>Search</Text>
           </View>
+
+          {/* Search bar */}
           <View style={[styles.searchBar, { backgroundColor: palette.backgroundSecondary, borderColor: palette.border }]}>
             <Ionicons name="search" size={18} color={palette.textSecondary} />
             <TextInput
@@ -139,7 +178,7 @@ export const SearchScreen = () => {
 
           {loading && <ActivityIndicator style={{ marginTop: 32 }} color={palette.primary} />}
 
-          {/* Browse categories — shown when no query typed */}
+          {/* Browse categories */}
           {!loading && results.length === 0 && query.length === 0 && (
             <View style={{ paddingHorizontal: 4, paddingTop: 8 }}>
               <Text style={[{ fontSize: 16, fontWeight: '700', marginBottom: 12, marginLeft: 4 }, { color: palette.text }]}>
@@ -179,14 +218,14 @@ export const SearchScreen = () => {
             </View>
           )}
 
-          {!loading && results.length === 0 && query.length > 0 && !loading && (
+          {!loading && results.length === 0 && query.length > 0 && (
             <View style={styles.emptyState}>
               <Ionicons name="musical-notes-outline" size={56} color={palette.border} />
               <Text style={[styles.emptyText, { color: palette.textSecondary }]}>No results for "{query}"</Text>
             </View>
           )}
 
-          {/* Song list */}
+          {/* ── Song list ─────────────────────────── */}
           <FlatList
             data={sortedSongs}
             keyExtractor={(item) => item.id}
@@ -201,6 +240,7 @@ export const SearchScreen = () => {
                   navigation.navigate('Player' as never);
                 }}
               >
+                {/* Album art */}
                 {item.imageUrl ? (
                   <Image source={{ uri: item.imageUrl }} style={styles.thumb} />
                 ) : (
@@ -208,6 +248,8 @@ export const SearchScreen = () => {
                     <Ionicons name="musical-notes" size={20} color={palette.textSecondary} />
                   </View>
                 )}
+
+                {/* Song info */}
                 <View style={styles.songInfo}>
                   <Text style={[styles.songTitle, { color: palette.text }]} numberOfLines={1}>{item.name}</Text>
                   <Text style={[styles.songMeta, { color: palette.textSecondary }]} numberOfLines={1}>
@@ -215,111 +257,113 @@ export const SearchScreen = () => {
                     {item.duration ? `  |  ${formatSeconds(item.duration)} mins` : ''}
                   </Text>
                 </View>
+
+                {/* ⋮ three-dot button → opens SongOptionsSheet */}
                 <TouchableOpacity
-                  onPress={() => {
-                    playFromSearch(sortedSongs, index);
-                    navigation.navigate('Player' as never);
+                  onPress={(e) => {
+                    e.stopPropagation();
+                    setSortOpen(false);
+                    setOptionsSong(item);
                   }}
-                  style={[styles.playCircle, { backgroundColor: palette.primary }]}
+                  style={styles.dotBtn}
+                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                 >
-                  <Ionicons name="play" size={14} color="#fff" style={{ marginLeft: 2 }} />
+                  <Ionicons name="ellipsis-vertical" size={18} color={palette.textSecondary} />
                 </TouchableOpacity>
               </TouchableOpacity>
             )}
           />
         </View>
       </TouchableWithoutFeedback>
+
+      {/* ── Toast notification ───────────────────────────────────────────────── */}
+      <Animated.View
+        style={[
+          styles.toast,
+          { backgroundColor: palette.card, borderColor: palette.border, opacity: toastOpacity },
+        ]}
+        pointerEvents="box-none"
+      >
+        <Ionicons name="checkmark-circle" size={18} color={palette.primary} />
+        <Text style={[styles.toastText, { color: palette.text }]} numberOfLines={1}>
+          {toastMsg}
+        </Text>
+        <TouchableOpacity onPress={() => setQueueVisible(true)} style={styles.toastBtn}>
+          <Text style={[styles.toastBtnText, { color: palette.primary }]}>View Queue</Text>
+        </TouchableOpacity>
+      </Animated.View>
+
+      {/* ── SongOptionsSheet ─────────────────────────────────────────────────── */}
+      <SongOptionsSheet
+        visible={!!optionsSong}
+        song={optionsSong}
+        onClose={() => setOptionsSong(null)}
+        onAddToQueue={handleAddToQueue}
+        onPlayNext={handlePlayNext}
+      />
+
+      {/* ── QueueSheet ───────────────────────────────────────────────────────── */}
+      <QueueSheet visible={queueVisible} onClose={() => setQueueVisible(false)} />
     </SafeAreaView>
   );
 };
 
 const styles = StyleSheet.create({
   safe: { flex: 1 },
-  titleRow: {
-    paddingHorizontal: 16,
-    paddingTop: 12,
-    paddingBottom: 8,
-  },
+  titleRow: { paddingHorizontal: 16, paddingTop: 12, paddingBottom: 8 },
   pageTitle: { fontSize: 28, fontWeight: '700' },
   searchBar: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    marginHorizontal: 16,
-    borderRadius: 14,
-    paddingHorizontal: 14,
-    paddingVertical: 11,
-    borderWidth: 1,
-    marginBottom: 4,
+    flexDirection: 'row', alignItems: 'center', gap: 8,
+    marginHorizontal: 16, borderRadius: 14,
+    paddingHorizontal: 14, paddingVertical: 11,
+    borderWidth: 1, marginBottom: 4,
   },
   input: { flex: 1, fontSize: 15, margin: 0, padding: 0 },
   resultsHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    zIndex: 20,
+    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
+    paddingHorizontal: 16, paddingVertical: 8, zIndex: 20,
   },
   resultCount: { fontSize: 13 },
   sortBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderRadius: 10,
-    borderWidth: 1,
+    flexDirection: 'row', alignItems: 'center', gap: 4,
+    paddingHorizontal: 10, paddingVertical: 5,
+    borderRadius: 10, borderWidth: 1,
   },
   sortBtnText: { fontSize: 13, fontWeight: '500' },
   sortMenu: {
-    position: 'absolute',
-    top: 36,
-    right: 0,
-    borderRadius: 14,
-    borderWidth: 1,
-    minWidth: 180,
-    paddingVertical: 6,
-    zIndex: 999,
-    elevation: 10,
-    shadowColor: '#000',
-    shadowOpacity: 0.15,
-    shadowRadius: 8,
-    shadowOffset: { width: 0, height: 4 },
+    position: 'absolute', top: 36, right: 0,
+    borderRadius: 14, borderWidth: 1, minWidth: 180,
+    paddingVertical: 6, zIndex: 999, elevation: 10,
+    shadowColor: '#000', shadowOpacity: 0.15, shadowRadius: 8, shadowOffset: { width: 0, height: 4 },
   },
   sortItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingVertical: 10,
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    paddingHorizontal: 16, paddingVertical: 10,
   },
-  radioOuter: {
-    width: 18,
-    height: 18,
-    borderRadius: 9,
-    borderWidth: 2,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
+  radioOuter: { width: 18, height: 18, borderRadius: 9, borderWidth: 2, alignItems: 'center', justifyContent: 'center' },
   radioInner: { width: 9, height: 9, borderRadius: 5 },
   emptyState: { flex: 1, justifyContent: 'center', alignItems: 'center', gap: 12, paddingBottom: 80 },
   emptyText: { fontSize: 14 },
-  songRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 8,
-    gap: 12,
-  },
+  songRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 8, gap: 12 },
   thumb: { width: 56, height: 56, borderRadius: 10 },
   songInfo: { flex: 1, minWidth: 0 },
   songTitle: { fontSize: 14, fontWeight: '600', marginBottom: 3 },
   songMeta: { fontSize: 12 },
-  playCircle: {
-    width: 34,
-    height: 34,
-    borderRadius: 17,
-    alignItems: 'center',
-    justifyContent: 'center',
+  dotBtn: {
+    width: 36, height: 36,
+    alignItems: 'center', justifyContent: 'center',
   },
+  // Toast
+  toast: {
+    position: 'absolute', bottom: 100, left: 16, right: 16,
+    flexDirection: 'row', alignItems: 'center', gap: 10,
+    paddingHorizontal: 16, paddingVertical: 12,
+    borderRadius: 14, borderWidth: 1,
+    elevation: 12, shadowColor: '#000',
+    shadowOpacity: 0.2, shadowRadius: 10,
+    shadowOffset: { width: 0, height: 4 },
+  },
+  toastText: { flex: 1, fontSize: 13, fontWeight: '500' },
+  toastBtn: { paddingHorizontal: 4 },
+  toastBtnText: { fontSize: 13, fontWeight: '700' },
 });

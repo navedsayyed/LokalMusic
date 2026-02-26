@@ -5,6 +5,7 @@ import {
   Dimensions,
   Image,
   PanResponder,
+  Share,
   StyleSheet,
   Text,
   TouchableOpacity,
@@ -13,6 +14,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { LyricsModal } from '@/components/music/LyricsModal';
+import { QueueSheet } from '@/components/music/QueueSheet';
 import { SongOptionsSheet } from '@/components/music/SongOptionsSheet';
 import {
   loadAndPlayCurrent,
@@ -40,6 +42,7 @@ export const PlayerScreen = () => {
   const [optionsVisible, setOptionsVisible] = useState(false);
   const [liked, setLiked] = useState(false);
   const [lyricsVisible, setLyricsVisible] = useState(false);
+  const [queueVisible, setQueueVisible] = useState(false);
   const setPlayerOpen = useUIStore((s) => s.setPlayerOpen);
 
   // Tell MiniPlayer to hide itself while full player is visible
@@ -106,13 +109,16 @@ export const PlayerScreen = () => {
     await loadAndPlayCurrent();
   };
 
-  const handlePlayNext = () => {
-    // Insert current song one position ahead in queue (as "play next")
-    // For now it's a UI-only indicator
-  };
-
-  const handleAddToQueue = () => {
-    // No-op placeholder — queue is the whole song list
+  const handleShare = async () => {
+    if (!current) return;
+    try {
+      await Share.share({
+        message: `🎵 Listening to "${current.name}" by ${current.primaryArtists} on Lokal Music App`,
+        title: current.name,
+      });
+    } catch {
+      // user cancelled share
+    }
   };
 
   return (
@@ -302,7 +308,7 @@ export const PlayerScreen = () => {
 
           {/* Share + Queue */}
           <View style={styles.bottomBarRight}>
-            <TouchableOpacity style={styles.bottomBarBtn}>
+            <TouchableOpacity style={styles.bottomBarBtn} onPress={handleShare}>
               <Ionicons
                 name="share-social-outline"
                 size={21}
@@ -311,7 +317,7 @@ export const PlayerScreen = () => {
             </TouchableOpacity>
             <TouchableOpacity
               style={styles.bottomBarBtn}
-              onPress={() => setOptionsVisible(true)}
+              onPress={() => setQueueVisible(true)}
             >
               <Ionicons name="menu-outline" size={23} color={palette.textSecondary} />
             </TouchableOpacity>
@@ -324,9 +330,10 @@ export const PlayerScreen = () => {
         visible={optionsVisible}
         song={current}
         onClose={() => setOptionsVisible(false)}
-        onPlayNext={handlePlayNext}
-        onAddToQueue={handleAddToQueue}
       />
+
+      {/* Queue bottom sheet */}
+      <QueueSheet visible={queueVisible} onClose={() => setQueueVisible(false)} />
 
       {/* Lyrics sheet */}
       <LyricsModal

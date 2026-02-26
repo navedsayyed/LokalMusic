@@ -1,6 +1,6 @@
-import { create } from 'zustand';
-import { persist, createJSONStorage } from 'zustand/middleware';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { create } from 'zustand';
+import { createJSONStorage, persist } from 'zustand/middleware';
 
 import { Song } from '@/types/music.types';
 
@@ -26,6 +26,8 @@ type PlayerActions = {
   cycleRepeat: () => void;
   enqueueNext: (song: Song) => void;
   enqueueToEnd: (song: Song) => void;
+  reorderQueue: (fromIndex: number, toIndex: number) => void;
+  removeFromQueue: (index: number) => void;
 };
 
 const initialState: PlayerState = {
@@ -57,10 +59,17 @@ export const usePlayerStore = create<PlayerState & PlayerActions>()(
           durationMillis: duration,
         }),
       next: () => {
-        const { queue, currentIndex, repeatMode } = get();
+        const { queue, currentIndex, repeatMode, shuffle } = get();
         if (queue.length === 0) return;
         if (repeatMode === 'one') {
           set({ positionMillis: 0 });
+          return;
+        }
+        if (shuffle && queue.length > 1) {
+          // Pick a random index different from current
+          let rand = Math.floor(Math.random() * queue.length);
+          if (rand === currentIndex) rand = (rand + 1) % queue.length;
+          set({ currentIndex: rand, positionMillis: 0 });
           return;
         }
         const lastIndex = queue.length - 1;
@@ -92,8 +101,8 @@ export const usePlayerStore = create<PlayerState & PlayerActions>()(
             state.repeatMode === 'off'
               ? 'all'
               : state.repeatMode === 'all'
-              ? 'one'
-              : 'off';
+                ? 'one'
+                : 'off';
           return { repeatMode: next };
         }),
       enqueueNext: (song: Song) =>
@@ -108,6 +117,31 @@ export const usePlayerStore = create<PlayerState & PlayerActions>()(
         set((state) => {
           if (!song) return state;
           return { queue: [...state.queue, song] };
+        }),
+      reorderQueue: (fromIndex: number, toIndex: number) =>
+        set((state) => {
+          if (fromIndex === toIndex) return state;
+          const queue = [...state.queue];
+          const [removed] = queue.splice(fromIndex, 1);
+          queue.splice(toIndex, 0, removed);
+          // Adjust currentIndex if the current song moved or items around it moved
+          let idx = state.currentIndex;
+          if (fromIndex === idx) {
+            idx = toIndex;
+          } else if (fromIndex < idx && toIndex >= idx) {
+            idx--;
+          } else if (fromIndex > idx && toIndex <= idx) {
+            idx++;
+          }
+          return { queue, currentIndex: idx };
+        }),
+      removeFromQueue: (index: number) =>
+        set((state) => {
+          if (index === state.currentIndex) return state; // can't remove now-playing
+          const queue = [...state.queue];
+          queue.splice(index, 1);
+          const idx = index < state.currentIndex ? state.currentIndex - 1 : state.currentIndex;
+          return { queue, currentIndex: idx };
         }),
     }),
     {
