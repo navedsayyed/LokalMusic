@@ -1,10 +1,11 @@
-export type DownloadQuality = '12kbps' | '48kbps' | '96kbps' | '160kbps' | '320kbps';
+export type DownloadQuality = '96kbps' | '160kbps' | '320kbps';
 
 export type Song = {
   id: string;
   name: string;
   duration: number;
   language?: string;
+  year?: string;
   year?: string;
   album?: {
     id: string;

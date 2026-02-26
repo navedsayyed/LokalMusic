@@ -81,28 +81,25 @@ export const SearchScreen = () => {
     <SafeAreaView style={[styles.safe, { backgroundColor: palette.background }]}>
       <TouchableWithoutFeedback onPress={() => { Keyboard.dismiss(); setSortOpen(false); }}>
         <View style={{ flex: 1 }}>
-          {/* Header */}
-          <View style={styles.header}>
-            <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
-              <Ionicons name="arrow-back" size={24} color={palette.text} />
-            </TouchableOpacity>
-            <View style={[styles.searchBar, { backgroundColor: palette.backgroundSecondary, borderColor: palette.border }]}>
-              <Ionicons name="search" size={18} color={palette.textSecondary} />
-              <TextInput
-                placeholder="Search songs, artists..."
-                placeholderTextColor={palette.textSecondary}
-                value={query}
-                onChangeText={setQuery}
-                style={[styles.input, { color: palette.text }]}
-                autoFocus
-                returnKeyType="search"
-              />
-              {query.length > 0 && (
-                <TouchableOpacity onPress={() => setQuery('')}>
-                  <Ionicons name="close-circle" size={18} color={palette.textSecondary} />
-                </TouchableOpacity>
-              )}
-            </View>
+          {/* Tab-style header: big title + search bar below */}
+          <View style={styles.titleRow}>
+            <Text style={[styles.pageTitle, { color: palette.text }]}>Search</Text>
+          </View>
+          <View style={[styles.searchBar, { backgroundColor: palette.backgroundSecondary, borderColor: palette.border }]}>
+            <Ionicons name="search" size={18} color={palette.textSecondary} />
+            <TextInput
+              placeholder="Songs, artists, albums..."
+              placeholderTextColor={palette.textSecondary}
+              value={query}
+              onChangeText={setQuery}
+              style={[styles.input, { color: palette.text }]}
+              returnKeyType="search"
+            />
+            {query.length > 0 && (
+              <TouchableOpacity onPress={() => setQuery('')}>
+                <Ionicons name="close-circle" size={18} color={palette.textSecondary} />
+              </TouchableOpacity>
+            )}
           </View>
 
           {/* Results count + sort */}
@@ -206,23 +203,22 @@ export const SearchScreen = () => {
 
 const styles = StyleSheet.create({
   safe: { flex: 1 },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
+  titleRow: {
     paddingHorizontal: 16,
-    paddingVertical: 10,
+    paddingTop: 12,
+    paddingBottom: 8,
   },
-  backBtn: { width: 36, height: 36, alignItems: 'center', justifyContent: 'center' },
+  pageTitle: { fontSize: 28, fontWeight: '700' },
   searchBar: {
-    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
-    borderRadius: 12,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
+    marginHorizontal: 16,
+    borderRadius: 14,
+    paddingHorizontal: 14,
+    paddingVertical: 11,
     borderWidth: 1,
+    marginBottom: 4,
   },
   input: { flex: 1, fontSize: 15, margin: 0, padding: 0 },
   resultsHeader: {

@@ -24,6 +24,8 @@ type PlayerActions = {
   previous: () => void;
   toggleShuffle: () => void;
   cycleRepeat: () => void;
+  enqueueNext: (song: Song) => void;
+  enqueueToEnd: (song: Song) => void;
 };
 
 const initialState: PlayerState = {
@@ -93,6 +95,19 @@ export const usePlayerStore = create<PlayerState & PlayerActions>()(
               ? 'one'
               : 'off';
           return { repeatMode: next };
+        }),
+      enqueueNext: (song: Song) =>
+        set((state) => {
+          if (!song) return state;
+          const newQueue = [...state.queue];
+          const insertIndex = Math.min(state.currentIndex + 1, newQueue.length);
+          newQueue.splice(insertIndex, 0, song);
+          return { queue: newQueue };
+        }),
+      enqueueToEnd: (song: Song) =>
+        set((state) => {
+          if (!song) return state;
+          return { queue: [...state.queue, song] };
         }),
     }),
     {

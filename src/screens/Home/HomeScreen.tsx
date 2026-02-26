@@ -16,72 +16,19 @@ import { SafeAreaView } from "react-native-safe-area-context";
 
 import { SongOptionsSheet } from "@/components/music/SongOptionsSheet";
 import { usePlayer } from "@/hooks/usePlayer";
-import { getTrendingSongs } from "@/services/api/music.api";
+import { AlbumItem, ArtistItem, getTrendingSongs, searchAlbums, searchArtists } from "@/services/api/music.api";
 import { useThemeStore } from "@/store/theme.store";
 import { colors } from "@/theme/colors";
 import { Song } from "@/types/music.types";
 
-// ─── Mock data for Suggested tab ───────────────────────────────────────────
+// ─── Greeting ───────────────────────────────────────────────────────────────
 
-const RECENTLY_PLAYED: { id: string; title: string; artist: string; image: string }[] = [
-  {
-    id: "r1",
-    title: "Shades of Love",
-    artist: "Ania Szarm...",
-    image: "https://c.saavncdn.com/584/Jab-Harry-Met-Sejal-Hindi-2017-20170803161007-500x500.jpg",
-  },
-  {
-    id: "r2",
-    title: "Without You",
-    artist: "The Kid LAROI",
-    image: "https://c.saavncdn.com/830/Without-You-English-2021-20210618141520-500x500.jpg",
-  },
-  {
-    id: "r3",
-    title: "Save Your Tears",
-    artist: "The Weeknd",
-    image: "https://c.saavncdn.com/161/Save-Your-Tears-English-2020-20201017050136-500x500.jpg",
-  },
-];
-
-const ARTISTS: { id: string; name: string; image: string }[] = [
-  {
-    id: "459320",
-    name: "Ariana Grande",
-    image: "https://c.saavncdn.com/artists/Ariana_Grande_20230516082612_500x500.jpg",
-  },
-  {
-    id: "weeknd",
-    name: "The Weeknd",
-    image: "https://c.saavncdn.com/artists/The_Weeknd_500x500.jpg",
-  },
-  {
-    id: "acidrap",
-    name: "Acidrap",
-    image: "https://c.saavncdn.com/artists/Arijit_Singh_005_20241021173209_500x500.jpg",
-  },
-];
-
-const MOST_PLAYED: { id: string; title: string; artist: string; image: string }[] = [
-  {
-    id: "m1",
-    title: "Starboy",
-    artist: "The Weeknd",
-    image: "https://c.saavncdn.com/161/Save-Your-Tears-English-2020-20201017050136-500x500.jpg",
-  },
-  {
-    id: "m2",
-    title: "Disaster",
-    artist: "Conan Gray",
-    image: "https://c.saavncdn.com/430/Aashiqui-2-Hindi-2013-500x500.jpg",
-  },
-  {
-    id: "m3",
-    title: "HANDSOME",
-    artist: "Warren Hue",
-    image: "https://c.saavncdn.com/584/Jab-Harry-Met-Sejal-Hindi-2017-20170803161007-500x500.jpg",
-  },
-];
+const getGreeting = () => {
+  const h = new Date().getHours();
+  if (h < 12) return "Good morning";
+  if (h < 17) return "Good afternoon";
+  return "Good evening";
+};
 
 // ─── Sort helpers ───────────────────────────────────────────────────────────
 
@@ -178,24 +125,49 @@ export const HomeScreen = () => {
   const [activeTab, setActiveTab] = useState<HomeTab>("Suggested");
   const navigation = useNavigation<any>();
 
-  // Songs tab state
+  // Songs/Artists/Albums tab state
   const [songs, setSongs] = useState<Song[]>([]);
+  const [artists, setArtists] = useState<ArtistItem[]>([]);
+  const [albums, setAlbums] = useState<AlbumItem[]>([]);
   const [loading, setLoading] = useState(false);
   const [sortBy, setSortBy] = useState<SortOption>("Ascending");
   const [sortMenuVisible, setSortMenuVisible] = useState(false);
-  // Options sheet state (lifted here so it's outside FlatList)
   const [selectedSong, setSelectedSong] = useState<Song | null>(null);
   const [optionsVisible, setOptionsVisible] = useState(false);
   const { playFromSearch } = usePlayer();
 
-  // Fetch songs when Songs tab is first opened
+  // Suggested tab state
+  const [suggestedSongs, setSuggestedSongs] = useState<Song[]>([]);
+  const [suggestedArtists, setSuggestedArtists] = useState<ArtistItem[]>([]);
+  const [suggestedLoading, setSuggestedLoading] = useState(false);
+
+  // Fetch Suggested tab data on mount
+  useEffect(() => {
+    setSuggestedLoading(true);
+    Promise.all([
+      getTrendingSongs("arijit singh hits", 12),
+      searchArtists("popular bollywood hindi singer", 10),
+    ]).then(([s, a]) => {
+      setSuggestedSongs(s);
+      setSuggestedArtists(a);
+    }).catch(() => { }).finally(() => setSuggestedLoading(false));
+  }, []);
+
   useEffect(() => {
     if (activeTab === "Songs" && songs.length === 0) {
       setLoading(true);
       getTrendingSongs("top hindi songs 2024", 30)
-        .then(setSongs)
-        .catch(() => { })
-        .finally(() => setLoading(false));
+        .then(setSongs).catch(() => { }).finally(() => setLoading(false));
+    }
+    if (activeTab === "Artists" && artists.length === 0) {
+      setLoading(true);
+      searchArtists("arijit singh bollywood hindi", 15)
+        .then(setArtists).catch(() => { }).finally(() => setLoading(false));
+    }
+    if (activeTab === "Albums" && albums.length === 0) {
+      setLoading(true);
+      searchAlbums("top hindi bollywood 2024", 15)
+        .then(setAlbums).catch(() => { }).finally(() => setLoading(false));
     }
   }, [activeTab]);
 
@@ -228,64 +200,99 @@ export const HomeScreen = () => {
 
   const renderSuggestedTab = () => (
     <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 160 }}>
-      {/* Recently Played */}
-      <View style={styles.sectionHeader}>
-        <Text style={[styles.sectionTitle, { color: palette.text }]}>Recently Played</Text>
-        <TouchableOpacity><Text style={[styles.seeAll, { color: palette.primary }]}>See All</Text></TouchableOpacity>
-      </View>
-      <FlatList
-        data={RECENTLY_PLAYED}
-        keyExtractor={(i) => i.id}
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        contentContainerStyle={{ paddingVertical: 10, paddingRight: 16 }}
-        renderItem={({ item }) => (
-          <TouchableOpacity style={styles.albumCard}>
-            <Image source={{ uri: item.image }} style={styles.albumImage} />
-            <Text style={[styles.albumTitle, { color: palette.text }]} numberOfLines={2}>{item.title}</Text>
-            <Text style={[styles.albumArtist, { color: palette.textSecondary }]} numberOfLines={1}>{item.artist}</Text>
-          </TouchableOpacity>
-        )}
-      />
+      {suggestedLoading ? (
+        <ActivityIndicator color={palette.primary} style={{ marginTop: 32 }} />
+      ) : (
+        <>
+          {/* Quick-play 2-column grid (top 6 songs — like Spotify home) */}
+          <Text style={[styles.sectionTitle, { color: palette.text, marginTop: 12, marginBottom: 8 }]}>
+            {getGreeting()} 👋
+          </Text>
+          <View style={styles.quickGrid}>
+            {suggestedSongs.slice(0, 6).map((song, index) => (
+              <TouchableOpacity
+                key={song.id}
+                style={[styles.quickCard, { backgroundColor: palette.backgroundSecondary }]}
+                activeOpacity={0.75}
+                onPress={() => { playFromSearch(suggestedSongs, index); navigation.navigate("Player"); }}
+              >
+                {song.imageUrl ? (
+                  <Image source={{ uri: song.imageUrl }} style={styles.quickImg} />
+                ) : (
+                  <View style={[styles.quickImg, { backgroundColor: palette.border, alignItems: 'center', justifyContent: 'center' }]}>
+                    <Ionicons name="musical-notes" size={18} color={palette.textSecondary} />
+                  </View>
+                )}
+                <Text style={[styles.quickLabel, { color: palette.text }]} numberOfLines={2}>
+                  {song.name}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
 
-      {/* Artists */}
-      <View style={styles.sectionHeader}>
-        <Text style={[styles.sectionTitle, { color: palette.text }]}>Artists</Text>
-        <TouchableOpacity><Text style={[styles.seeAll, { color: palette.primary }]}>See All</Text></TouchableOpacity>
-      </View>
-      <FlatList
-        data={ARTISTS}
-        keyExtractor={(i) => i.id}
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        contentContainerStyle={{ paddingVertical: 10, paddingRight: 16 }}
-        renderItem={({ item }) => (
-          <TouchableOpacity style={styles.artistCard}>
-            <Image source={{ uri: item.image }} style={styles.artistImage} />
-            <Text style={[styles.artistName, { color: palette.text }]} numberOfLines={1}>{item.name}</Text>
-          </TouchableOpacity>
-        )}
-      />
+          {/* Popular Artists */}
+          {suggestedArtists.length > 0 && (
+            <>
+              <View style={styles.sectionHeader}>
+                <Text style={[styles.sectionTitle, { color: palette.text }]}>Popular Artists</Text>
+                <TouchableOpacity><Text style={[styles.seeAll, { color: palette.primary }]}>See All</Text></TouchableOpacity>
+              </View>
+              <FlatList
+                data={suggestedArtists}
+                keyExtractor={(i) => i.id}
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={{ paddingVertical: 8, paddingRight: 16 }}
+                renderItem={({ item }) => (
+                  <TouchableOpacity style={styles.artistCard}>
+                    {item.imageUrl ? (
+                      <Image source={{ uri: item.imageUrl }} style={styles.artistImage} />
+                    ) : (
+                      <View style={[styles.artistImage, { backgroundColor: palette.backgroundSecondary, alignItems: 'center', justifyContent: 'center' }]}>
+                        <Ionicons name="person" size={28} color={palette.textSecondary} />
+                      </View>
+                    )}
+                    <Text style={[styles.artistName, { color: palette.text }]} numberOfLines={1}>{item.name}</Text>
+                  </TouchableOpacity>
+                )}
+              />
+            </>
+          )}
 
-      {/* Most Played */}
-      <View style={styles.sectionHeader}>
-        <Text style={[styles.sectionTitle, { color: palette.text }]}>Most Played</Text>
-        <TouchableOpacity><Text style={[styles.seeAll, { color: palette.primary }]}>See All</Text></TouchableOpacity>
-      </View>
-      <FlatList
-        data={MOST_PLAYED}
-        keyExtractor={(i) => i.id}
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        contentContainerStyle={{ paddingVertical: 10, paddingRight: 16 }}
-        renderItem={({ item }) => (
-          <TouchableOpacity style={styles.albumCard}>
-            <Image source={{ uri: item.image }} style={styles.albumImage} />
-            <Text style={[styles.albumTitle, { color: palette.text }]} numberOfLines={2}>{item.title}</Text>
-            <Text style={[styles.albumArtist, { color: palette.textSecondary }]} numberOfLines={1}>{item.artist}</Text>
-          </TouchableOpacity>
-        )}
-      />
+          {/* Trending Now (remaining songs as horizontal cards) */}
+          {suggestedSongs.length > 6 && (
+            <>
+              <View style={styles.sectionHeader}>
+                <Text style={[styles.sectionTitle, { color: palette.text }]}>Trending Now</Text>
+                <TouchableOpacity><Text style={[styles.seeAll, { color: palette.primary }]}>See All</Text></TouchableOpacity>
+              </View>
+              <FlatList
+                data={suggestedSongs.slice(6)}
+                keyExtractor={(i) => i.id}
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={{ paddingVertical: 8, paddingRight: 16 }}
+                renderItem={({ item, index }) => (
+                  <TouchableOpacity
+                    style={styles.albumCard}
+                    onPress={() => { playFromSearch(suggestedSongs, index + 6); navigation.navigate("Player"); }}
+                  >
+                    {item.imageUrl ? (
+                      <Image source={{ uri: item.imageUrl }} style={styles.albumImage} />
+                    ) : (
+                      <View style={[styles.albumImage, { backgroundColor: palette.backgroundSecondary, alignItems: 'center', justifyContent: 'center' }]}>
+                        <Ionicons name="musical-notes" size={24} color={palette.textSecondary} />
+                      </View>
+                    )}
+                    <Text style={[styles.albumTitle, { color: palette.text }]} numberOfLines={2}>{item.name}</Text>
+                    <Text style={[styles.albumArtist, { color: palette.textSecondary }]} numberOfLines={1}>{item.primaryArtists}</Text>
+                  </TouchableOpacity>
+                )}
+              />
+            </>
+          )}
+        </>
+      )}
     </ScrollView>
   );
 
@@ -351,16 +358,59 @@ export const HomeScreen = () => {
   );
 
   const renderArtistsTab = () => (
-    <View style={styles.comingSoon}>
-      <Ionicons name="people-outline" size={48} color={palette.textSecondary} />
-      <Text style={[styles.comingSoonText, { color: palette.textSecondary }]}>Artists coming soon</Text>
+    <View style={{ flex: 1 }}>
+      {loading ? (
+        <ActivityIndicator color={palette.primary} style={{ marginTop: 32 }} />
+      ) : (
+        <FlatList
+          data={artists}
+          keyExtractor={(i) => i.id}
+          numColumns={2}
+          contentContainerStyle={{ padding: 8, paddingBottom: 160 }}
+          showsVerticalScrollIndicator={false}
+          renderItem={({ item }) => (
+            <TouchableOpacity style={[styles.gridCard, { backgroundColor: palette.backgroundSecondary }]}>
+              {item.imageUrl ? (
+                <Image source={{ uri: item.imageUrl }} style={styles.gridCircle} />
+              ) : (
+                <View style={[styles.gridCircle, { backgroundColor: palette.border, alignItems: 'center', justifyContent: 'center' }]}>
+                  <Ionicons name="person" size={36} color={palette.textSecondary} />
+                </View>
+              )}
+              <Text style={[styles.gridLabel, { color: palette.text }]} numberOfLines={2}>{item.name}</Text>
+            </TouchableOpacity>
+          )}
+        />
+      )}
     </View>
   );
 
   const renderAlbumsTab = () => (
-    <View style={styles.comingSoon}>
-      <Ionicons name="albums-outline" size={48} color={palette.textSecondary} />
-      <Text style={[styles.comingSoonText, { color: palette.textSecondary }]}>Albums coming soon</Text>
+    <View style={{ flex: 1 }}>
+      {loading ? (
+        <ActivityIndicator color={palette.primary} style={{ marginTop: 32 }} />
+      ) : (
+        <FlatList
+          data={albums}
+          keyExtractor={(i) => i.id}
+          numColumns={2}
+          contentContainerStyle={{ padding: 8, paddingBottom: 160 }}
+          showsVerticalScrollIndicator={false}
+          renderItem={({ item }) => (
+            <TouchableOpacity style={[styles.gridCard, { backgroundColor: palette.backgroundSecondary }]}>
+              {item.imageUrl ? (
+                <Image source={{ uri: item.imageUrl }} style={styles.gridSquare} />
+              ) : (
+                <View style={[styles.gridSquare, { backgroundColor: palette.border, alignItems: 'center', justifyContent: 'center' }]}>
+                  <Ionicons name="albums" size={36} color={palette.textSecondary} />
+                </View>
+              )}
+              <Text style={[styles.gridLabel, { color: palette.text }]} numberOfLines={2}>{item.name}</Text>
+              <Text style={[styles.gridSub, { color: palette.textSecondary }]} numberOfLines={1}>{item.artist}</Text>
+            </TouchableOpacity>
+          )}
+        />
+      )}
     </View>
   );
 
@@ -385,7 +435,7 @@ export const HomeScreen = () => {
           <View style={styles.header}>
             <View style={styles.logoRow}>
               <Ionicons name="musical-notes" size={22} color={palette.primary} />
-              <Text style={[styles.logo, { color: palette.text }]}>Mume</Text>
+              <Text style={[styles.logo, { color: palette.text }]}>Lokal</Text>
             </View>
             <TouchableOpacity
               onPress={() => navigation.navigate("Search")}
@@ -563,4 +613,53 @@ const styles = StyleSheet.create({
   // Coming soon
   comingSoon: { flex: 1, justifyContent: "center", alignItems: "center", gap: 12 },
   comingSoonText: { fontSize: 14 },
+  // Grid (Artists / Albums)
+  gridCard: {
+    flex: 1,
+    margin: 6,
+    borderRadius: 16,
+    padding: 10,
+    alignItems: "center",
+  },
+  gridCircle: {
+    width: "100%",
+    aspectRatio: 1,
+    borderRadius: 999,
+    marginBottom: 8,
+  },
+  gridSquare: {
+    width: "100%",
+    aspectRatio: 1,
+    borderRadius: 14,
+    marginBottom: 8,
+  },
+  gridLabel: { fontSize: 13, fontWeight: "600", textAlign: "center" },
+  gridSub: { fontSize: 11, textAlign: "center", marginTop: 2 },
+  // Spotify-style quick-play grid
+  quickGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 8,
+    marginBottom: 8,
+  },
+  quickCard: {
+    flexDirection: "row",
+    alignItems: "center",
+    borderRadius: 6,
+    overflow: "hidden",
+    width: "48%",
+    height: 56,
+  },
+  quickImg: {
+    width: 56,
+    height: 56,
+    borderRadius: 0,
+  },
+  quickLabel: {
+    flex: 1,
+    fontSize: 12,
+    fontWeight: "600",
+    paddingHorizontal: 8,
+    lineHeight: 17,
+  },
 });

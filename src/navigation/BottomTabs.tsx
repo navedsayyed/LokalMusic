@@ -6,12 +6,13 @@ import { Text } from 'react-native';
 import { HomeScreen } from '@/screens/Home/HomeScreen';
 import { PlaylistScreen } from '@/screens/Playlist/PlaylistScreen';
 import { ProfileScreen } from '@/screens/Profile/ProfileScreen';
+import { SearchScreen } from '@/screens/Search/SearchScreen';
 import { useThemeStore } from '@/store/theme.store';
 import { colors } from '@/theme/colors';
 
 export type BottomTabParamList = {
   Home: undefined;
-  Favorites: undefined;
+  Search: undefined;
   Playlists: undefined;
   Settings: undefined;
 };
@@ -26,7 +27,7 @@ type TabIcon = {
 
 const TAB_CONFIG: Record<string, TabIcon> = {
   Home: { name: 'home-outline', activeIcon: 'home', label: 'Home' },
-  Favorites: { name: 'heart-outline', activeIcon: 'heart', label: 'Favorites' },
+  Search: { name: 'search-outline', activeIcon: 'search', label: 'Search' },
   Playlists: { name: 'musical-notes-outline', activeIcon: 'musical-notes', label: 'Playlists' },
   Settings: { name: 'settings-outline', activeIcon: 'settings', label: 'Settings' },
 };
@@ -49,6 +50,7 @@ export const BottomTabs = () => {
           paddingBottom: 8,
           paddingTop: 6,
         },
+        tabBarHideOnKeyboard: true,
         tabBarLabel: ({ color }) => (
           <Text style={{ color, fontSize: 10, fontWeight: '500' }}>
             {TAB_CONFIG[route.name]?.label ?? route.name}
@@ -68,21 +70,9 @@ export const BottomTabs = () => {
       })}
     >
       <Tab.Screen name="Home" component={HomeScreen} />
-      <Tab.Screen
-        name="Favorites"
-        component={PlaylistScreen}
-        options={{ title: 'Favorites' }}
-      />
-      <Tab.Screen
-        name="Playlists"
-        component={PlaylistScreen}
-        options={{ title: 'Playlists' }}
-      />
-      <Tab.Screen
-        name="Settings"
-        component={ProfileScreen}
-        options={{ title: 'Settings' }}
-      />
+      <Tab.Screen name="Search" component={SearchScreen} />
+      <Tab.Screen name="Playlists" component={PlaylistScreen} options={{ title: 'Playlists' }} />
+      <Tab.Screen name="Settings" component={ProfileScreen} options={{ title: 'Settings' }} />
     </Tab.Navigator>
   );
 };

@@ -1,8 +1,10 @@
 import { createStackNavigator } from "@react-navigation/stack";
-import React from "react";
-import { StyleSheet, View } from "react-native";
+import React, { useEffect, useState } from "react";
+import { Keyboard, StyleSheet, View } from "react-native";
 
 import { MiniPlayer } from "@/components/music/MiniPlayer";
+import { AlbumScreen } from "@/screens/Album/AlbumScreen";
+import { ArtistScreen } from "@/screens/Artist/ArtistScreen";
 import { PlayerScreen } from "@/screens/Player/PlayerScreen";
 import { SearchScreen } from "@/screens/Search/SearchScreen";
 import { useUIStore } from "@/store/ui.store";
@@ -12,14 +14,24 @@ export type RootStackParamList = {
   MainTabs: undefined;
   Search: undefined;
   Player: undefined;
+  Album: { albumId?: string; albumName?: string } | undefined;
+  Artist: { artistId?: string; artistName: string } | undefined;
 };
 
 const Stack = createStackNavigator<RootStackParamList>();
 
-// Only show MiniPlayer when the full player is NOT open
+// Hides when the full player is open OR when the keyboard is showing
 const ConditionalMiniPlayer = () => {
   const isPlayerOpen = useUIStore((s) => s.isPlayerOpen);
-  if (isPlayerOpen) return null;
+  const [keyboardVisible, setKeyboardVisible] = useState(false);
+
+  useEffect(() => {
+    const show = Keyboard.addListener("keyboardDidShow", () => setKeyboardVisible(true));
+    const hide = Keyboard.addListener("keyboardDidHide", () => setKeyboardVisible(false));
+    return () => { show.remove(); hide.remove(); };
+  }, []);
+
+  if (isPlayerOpen || keyboardVisible) return null;
   return <MiniPlayer />;
 };
 
@@ -34,6 +46,8 @@ export const RootNavigator = () => {
           component={PlayerScreen}
           options={{ presentation: "modal" }}
         />
+        <Stack.Screen name="Album" component={AlbumScreen} />
+        <Stack.Screen name="Artist" component={ArtistScreen} />
       </Stack.Navigator>
       <ConditionalMiniPlayer />
     </View>

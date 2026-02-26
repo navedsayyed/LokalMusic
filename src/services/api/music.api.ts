@@ -1,4 +1,5 @@
-import { Song } from '@/types/music.types';
+import { useSettingsStore } from '@/store/settings.store';
+import { DownloadQuality, Song } from '@/types/music.types';
 import { apiClient } from './axiosConfig';
 
 type SaavnSearchSong = {
@@ -12,8 +13,9 @@ type SaavnSearchSong = {
     url?: string;
   };
   primaryArtists: string;
-  image?: { link: string; quality: string }[];
-  downloadUrl?: { link: string; quality: string }[];
+  // API returns { quality, url } — NOT { quality, link }
+  image?: { url: string; quality: string }[];
+  downloadUrl?: { url: string; quality: string }[];
 };
 
 type SearchSongsResponse = {
@@ -62,22 +64,29 @@ const pickBestImageFromUrls = (images?: { url: string; quality: string }[]) => {
   return preferred.url;
 };
 
-const pickBestAudioFromLinks = (urls?: { link: string; quality: string }[]) => {
+const pickAudioByQuality = <
+  T extends { quality: string; link?: string; url?: string }
+>(
+  urls?: T[],
+) => {
   if (!urls || urls.length === 0) return undefined;
-  const preferred =
-    urls.find((u) => u.quality === '320kbps') ??
-    urls.find((u) => u.quality === '160kbps') ??
-    urls[0];
-  return preferred.link;
-};
+  const preferred: DownloadQuality =
+    useSettingsStore.getState().streamQuality ?? '320kbps';
 
-const pickBestAudioFromUrls = (urls?: { url: string; quality: string }[]) => {
-  if (!urls || urls.length === 0) return undefined;
-  const preferred =
-    urls.find((u) => u.quality === '320kbps') ??
-    urls.find((u) => u.quality === '160kbps') ??
-    urls[0];
-  return preferred.url;
+  const order: DownloadQuality[] =
+    preferred === '320kbps'
+      ? ['320kbps', '160kbps', '96kbps']
+      : preferred === '160kbps'
+        ? ['160kbps', '96kbps', '320kbps']
+        : ['96kbps', '160kbps', '320kbps'];
+
+  for (const q of order) {
+    const match = urls.find((u) => u.quality === q);
+    if (match) return (match as any).url ?? (match as any).link;
+  }
+
+  const first = urls[0] as any;
+  return first.url ?? first.link;
 };
 
 const mapSaavnSearchSong = (song: SaavnSearchSong): Song => ({
@@ -89,12 +98,12 @@ const mapSaavnSearchSong = (song: SaavnSearchSong): Song => ({
     ? {
       id: song.album.id,
       name: song.album.name,
-      imageUrl: pickBestImageFromLinks(song.image),
+      imageUrl: pickBestImageFromUrls(song.image),
     }
     : undefined,
   primaryArtists: song.primaryArtists,
-  imageUrl: pickBestImageFromLinks(song.image),
-  streamUrl: pickBestAudioFromLinks(song.downloadUrl),
+  imageUrl: pickBestImageFromUrls(song.image),
+  streamUrl: pickAudioByQuality(song.downloadUrl),
 });
 
 export const searchSongs = async (
@@ -135,6 +144,57 @@ export const getSongById = async (id: string): Promise<Song | null> => {
       : undefined,
     primaryArtists,
     imageUrl: pickBestImageFromUrls(raw.image),
-    streamUrl: pickBestAudioFromUrls(raw.downloadUrl),
+    streamUrl: pickAudioByQuality(raw.downloadUrl),
   };
 };
+
+// ─── Artist search ────────────────────────────────────────────────────────────
+
+export type ArtistItem = { id: string; name: string; imageUrl?: string };
+
+export const searchArtists = async (query: string, limit = 10): Promise<ArtistItem[]> => {
+  try {
+    const { data } = await apiClient.get<{
+      success: boolean;
+      data: { results: { id: string; name: string; image?: { url: string; quality: string }[] }[] };
+    }>('/api/search/artists', { params: { query, limit } });
+    return (data?.data?.results ?? []).map((a) => ({
+      id: a.id,
+      name: a.name,
+      imageUrl: pickBestImageFromUrls(a.image),
+    }));
+  } catch {
+    return [];
+  }
+};
+
+// ─── Album search ─────────────────────────────────────────────────────────────
+
+export type AlbumItem = { id: string; name: string; artist: string; imageUrl?: string; year?: string };
+
+export const searchAlbums = async (query: string, limit = 10): Promise<AlbumItem[]> => {
+  try {
+    const { data } = await apiClient.get<{
+      success: boolean;
+      data: {
+        results: {
+          id: string;
+          name: string;
+          image?: { url: string; quality: string }[];
+          artists?: { primary?: { name: string }[] };
+          year?: string;
+        }[];
+      };
+    }>('/api/search/albums', { params: { query, limit } });
+    return (data?.data?.results ?? []).map((a) => ({
+      id: a.id,
+      name: a.name,
+      artist: a.artists?.primary?.map((p) => p.name).join(', ') ?? '',
+      imageUrl: pickBestImageFromUrls(a.image),
+      year: a.year,
+    }));
+  } catch {
+    return [];
+  }
+};
+
