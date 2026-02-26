@@ -1,15 +1,32 @@
-import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Image } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useNavigation } from '@react-navigation/native';
+import React, { useEffect, useRef, useState } from 'react';
+import {
+  Dimensions,
+  Image,
+  PanResponder,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { ScreenContainer } from '@/components/layout/ScreenContainer';
-import { useThemeStore } from '@/store/theme.store';
-import { colors } from '@/theme/colors';
+import { SongOptionsSheet } from '@/components/music/SongOptionsSheet';
+import {
+  loadAndPlayCurrent,
+  seekTo,
+  togglePlayPause,
+} from '@/services/player/audio.service';
 import { usePlayerStore } from '@/store/player.store';
-import { togglePlayPause, seekTo, loadAndPlayCurrent } from '@/services/player/audio.service';
+import { useThemeStore } from '@/store/theme.store';
+import { useUIStore } from '@/store/ui.store';
+import { colors } from '@/theme/colors';
+
+const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
 const formatTime = (ms: number) => {
-  const totalSeconds = Math.floor(ms / 1000);
+  const totalSeconds = Math.max(0, Math.floor(ms / 1000));
   const minutes = Math.floor(totalSeconds / 60);
   const seconds = totalSeconds % 60;
   return `${minutes}:${seconds.toString().padStart(2, '0')}`;
@@ -18,6 +35,17 @@ const formatTime = (ms: number) => {
 export const PlayerScreen = () => {
   const colorScheme = useThemeStore((s) => s.colorScheme);
   const palette = colors[colorScheme];
+  const navigation = useNavigation();
+  const [optionsVisible, setOptionsVisible] = useState(false);
+  const [liked, setLiked] = useState(false);
+  const setPlayerOpen = useUIStore((s) => s.setPlayerOpen);
+
+  // Tell MiniPlayer to hide itself while full player is visible
+  useEffect(() => {
+    setPlayerOpen(true);
+    return () => setPlayerOpen(false);
+  }, [setPlayerOpen]);
+
   const {
     queue,
     currentIndex,
@@ -33,213 +61,296 @@ export const PlayerScreen = () => {
   } = usePlayerStore();
 
   const current = queue[currentIndex];
+  const seekBarWidth = useRef(SCREEN_WIDTH - 64);
+
+  const progress = durationMillis > 0 ? Math.min(1, positionMillis / durationMillis) : 0;
+
+  const panResponder = useRef(
+    PanResponder.create({
+      onStartShouldSetPanResponder: () => true,
+      onPanResponderGrant: (e) => {
+        const dur = usePlayerStore.getState().durationMillis;
+        const ratio = Math.min(1, Math.max(0, e.nativeEvent.locationX / seekBarWidth.current));
+        seekTo(ratio * dur);
+      },
+      onPanResponderMove: (e) => {
+        const dur = usePlayerStore.getState().durationMillis;
+        const ratio = Math.min(1, Math.max(0, e.nativeEvent.locationX / seekBarWidth.current));
+        seekTo(ratio * dur);
+      },
+    })
+  ).current;
 
   if (!current) {
     return (
-      <ScreenContainer>
+      <SafeAreaView style={[styles.safe, { backgroundColor: palette.background }]}>
         <View style={styles.center}>
-          <Text style={{ color: palette.textSecondary }}>No song selected</Text>
+          <Ionicons name="musical-notes-outline" size={64} color={palette.textSecondary} />
+          <Text style={{ color: palette.textSecondary, marginTop: 12, fontSize: 16 }}>
+            No song selected
+          </Text>
         </View>
-      </ScreenContainer>
+      </SafeAreaView>
     );
   }
 
-  const progress =
-    durationMillis > 0 ? Math.min(1, positionMillis / durationMillis) : 0;
+  const handleNext = async () => {
+    next();
+    await loadAndPlayCurrent();
+  };
+
+  const handlePrevious = async () => {
+    previous();
+    await loadAndPlayCurrent();
+  };
+
+  const handlePlayNext = () => {
+    // Insert current song one position ahead in queue (as "play next")
+    // For now it's a UI-only indicator
+  };
+
+  const handleAddToQueue = () => {
+    // No-op placeholder — queue is the whole song list
+  };
 
   return (
-    <ScreenContainer>
-      {current.imageUrl ? (
-        <Image
-          source={{ uri: current.imageUrl }}
-          style={styles.albumArt}
-        />
-      ) : (
-        <View style={styles.albumArtPlaceholder} />
-      )}
-      <View style={{ marginTop: 24 }}>
-        <Text style={[styles.title, { color: palette.text }]} numberOfLines={1}>
-          {current.name}
+    <SafeAreaView style={[styles.safe, { backgroundColor: palette.background }]}>
+      {/* Top bar */}
+      <View style={styles.topBar}>
+        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.iconBtn}>
+          <Ionicons name="chevron-down" size={28} color={palette.text} />
+        </TouchableOpacity>
+        <Text style={[styles.nowPlayingLabel, { color: palette.textSecondary }]}>
+          NOW PLAYING
         </Text>
-        <Text
-          style={[styles.subtitle, { color: palette.textSecondary }]}
-          numberOfLines={1}>
-          {current.primaryArtists}
-        </Text>
+        <TouchableOpacity
+          onPress={() => setOptionsVisible(true)}
+          style={styles.iconBtn}
+        >
+          <Ionicons name="ellipsis-horizontal" size={24} color={palette.text} />
+        </TouchableOpacity>
       </View>
 
-      <View style={styles.progressContainer}>
-        <View style={styles.progressBarBackground}>
-          <View
-            style={[
-              styles.progressBarFill,
-              { width: `${progress * 100}%`, backgroundColor: palette.primary },
-            ]}
-          />
+      {/* Album art */}
+      <View style={styles.artContainer}>
+        {current.imageUrl ? (
+          <Image source={{ uri: current.imageUrl }} style={styles.albumArt} />
+        ) : (
+          <View style={[styles.albumArt, styles.artPlaceholder, { backgroundColor: palette.backgroundSecondary }]}>
+            <Ionicons name="musical-notes" size={80} color={palette.textSecondary} />
+          </View>
+        )}
+      </View>
+
+      {/* Song info + like */}
+      <View style={styles.infoRow}>
+        <View style={{ flex: 1 }}>
+          <Text style={[styles.songTitle, { color: palette.text }]} numberOfLines={1}>
+            {current.name}
+          </Text>
+          <Text style={[styles.artistName, { color: palette.textSecondary }]} numberOfLines={1}>
+            {current.primaryArtists}
+          </Text>
         </View>
-        <View style={styles.progressLabels}>
-          <Text style={{ color: palette.textSecondary, fontSize: 12 }}>
+        <TouchableOpacity onPress={() => setLiked((v) => !v)} style={styles.likeBtn}>
+          <Ionicons
+            name={liked ? 'heart' : 'heart-outline'}
+            size={26}
+            color={liked ? palette.primary : palette.primary}
+          />
+        </TouchableOpacity>
+      </View>
+
+      {/* Progress bar */}
+      <View style={styles.progressSection}>
+        <View
+          style={styles.progressBarHit}
+          {...panResponder.panHandlers}
+          onLayout={(e) => { seekBarWidth.current = e.nativeEvent.layout.width; }}
+        >
+          <View style={[styles.progressBg, { backgroundColor: palette.backgroundSecondary }]}>
+            <View
+              style={[
+                styles.progressFill,
+                { width: `${progress * 100}%`, backgroundColor: palette.primary },
+              ]}
+            />
+            <View
+              style={[
+                styles.thumb,
+                { left: `${progress * 100}%`, backgroundColor: palette.primary, transform: [{ translateX: -7 }] },
+              ]}
+            />
+          </View>
+        </View>
+        <View style={styles.timeRow}>
+          <Text style={[styles.timeText, { color: palette.textSecondary }]}>
             {formatTime(positionMillis)}
           </Text>
-          <Text style={{ color: palette.textSecondary, fontSize: 12 }}>
+          <Text style={[styles.timeText, { color: palette.textSecondary }]}>
             {formatTime(durationMillis || current.duration * 1000)}
           </Text>
         </View>
       </View>
 
-      <View style={styles.controlsRow}>
-        <TouchableOpacity onPress={toggleShuffle}>
-          <Ionicons
-            name="shuffle"
-            size={22}
-            color={shuffle ? palette.primary : palette.textSecondary}
-          />
-        </TouchableOpacity>
-        <TouchableOpacity
-          onPress={() => {
-            previous();
-            loadAndPlayCurrent();
-          }}>
-          <Ionicons
-            name="play-skip-back"
-            size={28}
-            color={palette.text}
-          />
+      {/* Controls */}
+      <View style={styles.controls}>
+        {/* Shuffle */}
+        <TouchableOpacity onPress={toggleShuffle} style={styles.controlBtn}>
+          <Ionicons name="shuffle" size={24} color={shuffle ? palette.primary : palette.textSecondary} />
+          {shuffle && <View style={[styles.dot, { backgroundColor: palette.primary }]} />}
         </TouchableOpacity>
 
+        {/* Previous */}
+        <TouchableOpacity style={styles.controlBtn} onPress={handlePrevious}>
+          <Ionicons name="play-skip-back" size={32} color={palette.text} />
+        </TouchableOpacity>
+
+        {/* Play / Pause */}
         <TouchableOpacity
-          style={[styles.playButton, { backgroundColor: palette.primary }]}
-          onPress={() => togglePlayPause()}>
+          style={[styles.playBtn, { backgroundColor: palette.primary }]}
+          onPress={togglePlayPause}
+          activeOpacity={0.8}
+        >
           <Ionicons
             name={isPlaying ? 'pause' : 'play'}
-            size={30}
-            color="#FFFFFF"
+            size={32}
+            color="#fff"
+            style={isPlaying ? undefined : { marginLeft: 3 }}
           />
         </TouchableOpacity>
 
-        <TouchableOpacity
-          onPress={() => {
-            next();
-            loadAndPlayCurrent();
-          }}>
-          <Ionicons
-            name="play-skip-forward"
-            size={28}
-            color={palette.text}
-          />
+        {/* Next */}
+        <TouchableOpacity style={styles.controlBtn} onPress={handleNext}>
+          <Ionicons name="play-skip-forward" size={32} color={palette.text} />
         </TouchableOpacity>
-        <TouchableOpacity onPress={cycleRepeat}>
+
+        {/* Repeat */}
+        <TouchableOpacity onPress={cycleRepeat} style={styles.controlBtn}>
           <Ionicons
-            name={
-              repeatMode === 'one'
-                ? 'repeat-once'
-                : 'repeat'
-            }
-            size={22}
-            color={
-              repeatMode === 'off' ? palette.textSecondary : palette.primary
-            }
+            name="repeat"
+            size={24}
+            color={repeatMode === 'off' ? palette.textSecondary : palette.primary}
           />
+          {repeatMode === 'one' && (
+            <Text style={[styles.repeatBadge, { color: palette.primary }]}>1</Text>
+          )}
+          {repeatMode !== 'off' && (
+            <View style={[styles.dot, { backgroundColor: palette.primary }]} />
+          )}
         </TouchableOpacity>
       </View>
 
-      <View style={styles.actionsRow}>
-        <TouchableOpacity style={styles.actionButton}>
-          <Ionicons name="list" size={20} color={palette.text} />
-          <Text style={[styles.actionLabel, { color: palette.textSecondary }]}>
-            Add to queue
-          </Text>
+      {/* Extra actions */}
+      <View style={styles.extras}>
+        <TouchableOpacity style={styles.extraBtn} onPress={() => setOptionsVisible(true)}>
+          <Ionicons name="list-outline" size={22} color={palette.textSecondary} />
+          <Text style={[styles.extraLabel, { color: palette.textSecondary }]}>Queue</Text>
         </TouchableOpacity>
-        <TouchableOpacity style={styles.actionButton}>
-          <Ionicons name="albums" size={20} color={palette.text} />
-          <Text style={[styles.actionLabel, { color: palette.textSecondary }]}>
-            Add to playlist
-          </Text>
+        <TouchableOpacity style={styles.extraBtn}>
+          <Ionicons name="albums-outline" size={22} color={palette.textSecondary} />
+          <Text style={[styles.extraLabel, { color: palette.textSecondary }]}>Playlist</Text>
         </TouchableOpacity>
-        <TouchableOpacity style={styles.actionButton}>
-          <Ionicons name="document-text" size={20} color={palette.text} />
-          <Text style={[styles.actionLabel, { color: palette.textSecondary }]}>
-            Lyrics
-          </Text>
+        <TouchableOpacity style={styles.extraBtn}>
+          <Ionicons name="download-outline" size={22} color={palette.textSecondary} />
+          <Text style={[styles.extraLabel, { color: palette.textSecondary }]}>Download</Text>
+        </TouchableOpacity>
+        <TouchableOpacity style={styles.extraBtn}>
+          <Ionicons name="share-social-outline" size={22} color={palette.textSecondary} />
+          <Text style={[styles.extraLabel, { color: palette.textSecondary }]}>Share</Text>
         </TouchableOpacity>
       </View>
-    </ScreenContainer>
+
+      {/* Song options bottom sheet */}
+      <SongOptionsSheet
+        visible={optionsVisible}
+        song={current}
+        onClose={() => setOptionsVisible(false)}
+        onPlayNext={handlePlayNext}
+        onAddToQueue={handleAddToQueue}
+      />
+    </SafeAreaView>
   );
 };
 
 const styles = StyleSheet.create({
-  center: {
-    flex: 1,
-    justifyContent: 'center',
+  safe: { flex: 1 },
+  center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
+  topBar: {
+    flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 8,
+    paddingTop: 4,
+    paddingBottom: 4,
   },
-  albumArt: {
-    marginTop: 24,
-    alignSelf: 'center',
-    width: 260,
-    height: 260,
-    borderRadius: 24,
+  iconBtn: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },
+  nowPlayingLabel: { fontSize: 11, fontWeight: '700', letterSpacing: 1 },
+  artContainer: { alignItems: 'center', marginTop: 8, paddingHorizontal: 24 },
+  albumArt: { width: 280, height: 280, borderRadius: 24 },
+  artPlaceholder: { alignItems: 'center', justifyContent: 'center' },
+  infoRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 24,
+    marginTop: 28,
+    gap: 12,
   },
-  albumArtPlaceholder: {
-    marginTop: 24,
-    alignSelf: 'center',
-    width: 260,
-    height: 260,
-    borderRadius: 24,
-    backgroundColor: '#1F2933',
-  },
-  title: {
-    fontSize: 20,
-    fontWeight: '700',
-  },
-  subtitle: {
-    fontSize: 14,
-    marginTop: 4,
-  },
-  progressContainer: {
-    marginTop: 32,
-  },
-  progressBarBackground: {
+  songTitle: { fontSize: 22, fontWeight: '700' },
+  artistName: { fontSize: 15, marginTop: 4 },
+  likeBtn: { padding: 4 },
+  progressSection: { paddingHorizontal: 24, marginTop: 24 },
+  progressBarHit: { paddingVertical: 10 },
+  progressBg: { height: 4, borderRadius: 999, overflow: 'visible' },
+  progressFill: {
     height: 4,
     borderRadius: 999,
-    backgroundColor: '#1F2937',
-    overflow: 'hidden',
+    position: 'absolute',
+    top: 0,
+    left: 0,
   },
-  progressBarFill: {
-    height: 4,
-    borderRadius: 999,
+  thumb: {
+    position: 'absolute',
+    top: -5,
+    width: 14,
+    height: 14,
+    borderRadius: 7,
   },
-  progressLabels: {
+  timeRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginTop: 8,
+    marginTop: 6,
   },
-  controlsRow: {
-    marginTop: 36,
+  timeText: { fontSize: 12 },
+  controls: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 24,
+    marginTop: 28,
   },
-  playButton: {
-    width: 72,
-    height: 72,
-    borderRadius: 36,
+  controlBtn: { alignItems: 'center', justifyContent: 'center', width: 48, height: 48 },
+  playBtn: {
+    width: 70,
+    height: 70,
+    borderRadius: 35,
     alignItems: 'center',
     justifyContent: 'center',
+    elevation: 6,
+    shadowColor: '#FF8A00',
+    shadowOpacity: 0.45,
+    shadowRadius: 14,
+    shadowOffset: { width: 0, height: 4 },
   },
-  actionsRow: {
-    marginTop: 32,
+  dot: { position: 'absolute', bottom: 2, width: 4, height: 4, borderRadius: 2 },
+  repeatBadge: { position: 'absolute', top: 1, right: 2, fontSize: 9, fontWeight: '800' },
+  extras: {
     flexDirection: 'row',
     justifyContent: 'space-around',
-    alignItems: 'center',
+    paddingHorizontal: 16,
+    marginTop: 28,
+    paddingBottom: 16,
   },
-  actionButton: {
-    alignItems: 'center',
-    gap: 4,
-  },
-  actionLabel: {
-    fontSize: 11,
-  },
+  extraBtn: { alignItems: 'center', gap: 6 },
+  extraLabel: { fontSize: 11 },
 });
-

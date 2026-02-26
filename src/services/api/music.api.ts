@@ -1,13 +1,15 @@
-import { apiClient } from './axiosConfig';
 import { Song } from '@/types/music.types';
+import { apiClient } from './axiosConfig';
 
 type SaavnSearchSong = {
   id: string;
   name: string;
   duration: string;
+  year?: string;
   album?: {
     id: string;
     name: string;
+    url?: string;
   };
   primaryArtists: string;
   image?: { link: string; quality: string }[];
@@ -18,6 +20,7 @@ type SearchSongsResponse = {
   status: string;
   data: {
     results: SaavnSearchSong[];
+    total?: number;
   };
 };
 
@@ -26,6 +29,7 @@ type SaavnSongDetail = {
   name: string;
   duration: number;
   language: string;
+  year?: string;
   album?: {
     id: string;
     name: string;
@@ -44,13 +48,17 @@ type SongsResponse = {
 
 const pickBestImageFromLinks = (images?: { link: string; quality: string }[]) => {
   if (!images || images.length === 0) return undefined;
-  const preferred = images.find((i) => i.quality === '500x500') ?? images[0];
+  const preferred = images.find((i) => i.quality === '500x500')
+    ?? images.find((i) => i.quality === '150x150')
+    ?? images[0];
   return preferred.link;
 };
 
 const pickBestImageFromUrls = (images?: { url: string; quality: string }[]) => {
   if (!images || images.length === 0) return undefined;
-  const preferred = images.find((i) => i.quality === '500x500') ?? images[0];
+  const preferred = images.find((i) => i.quality === '500x500')
+    ?? images.find((i) => i.quality === '150x150')
+    ?? images[0];
   return preferred.url;
 };
 
@@ -72,28 +80,37 @@ const pickBestAudioFromUrls = (urls?: { url: string; quality: string }[]) => {
   return preferred.url;
 };
 
-const mapSong = (song: SaavnSearchSong): Song => ({
+const mapSaavnSearchSong = (song: SaavnSearchSong): Song => ({
   id: song.id,
   name: song.name,
   duration: Number(song.duration) || 0,
+  year: song.year,
   album: song.album
     ? {
-        id: song.album.id,
-        name: song.album.name,
-        imageUrl: pickBestImageFromLinks(song.image),
-      }
+      id: song.album.id,
+      name: song.album.name,
+      imageUrl: pickBestImageFromLinks(song.image),
+    }
     : undefined,
   primaryArtists: song.primaryArtists,
   imageUrl: pickBestImageFromLinks(song.image),
   streamUrl: pickBestAudioFromLinks(song.downloadUrl),
 });
 
-export const searchSongs = async (query: string): Promise<Song[]> => {
+export const searchSongs = async (
+  query: string,
+  page = 1,
+  limit = 20,
+): Promise<Song[]> => {
   const { data } = await apiClient.get<SearchSongsResponse>('/api/search/songs', {
-    params: { query },
+    params: { query, page, limit },
   });
   if (!data?.data?.results) return [];
-  return data.data.results.map(mapSong);
+  return data.data.results.map(mapSaavnSearchSong);
+};
+
+export const getTrendingSongs = async (query = 'top hindi hits 2024', limit = 30): Promise<Song[]> => {
+  return searchSongs(query, 1, limit);
 };
 
 export const getSongById = async (id: string): Promise<Song | null> => {
@@ -108,17 +125,16 @@ export const getSongById = async (id: string): Promise<Song | null> => {
     id: raw.id,
     name: raw.name,
     duration: raw.duration ?? 0,
+    year: raw.year,
     album: raw.album
       ? {
-          id: raw.album.id,
-          name: raw.album.name,
-          imageUrl: pickBestImageFromUrls(raw.image),
-        }
+        id: raw.album.id,
+        name: raw.album.name,
+        imageUrl: pickBestImageFromUrls(raw.image),
+      }
       : undefined,
     primaryArtists,
     imageUrl: pickBestImageFromUrls(raw.image),
     streamUrl: pickBestAudioFromUrls(raw.downloadUrl),
   };
 };
-
-

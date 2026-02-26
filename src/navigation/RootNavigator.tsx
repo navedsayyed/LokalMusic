@@ -5,31 +5,41 @@ import { StyleSheet, View } from "react-native";
 import { MiniPlayer } from "@/components/music/MiniPlayer";
 import { PlayerScreen } from "@/screens/Player/PlayerScreen";
 import { SearchScreen } from "@/screens/Search/SearchScreen";
-import { DrawerNavigator } from "./DrawerNavigator";
+import { useUIStore } from "@/store/ui.store";
+import { BottomTabs } from "./BottomTabs";
 
 export type RootStackParamList = {
-  MainDrawer: undefined;
+  MainTabs: undefined;
   Search: undefined;
   Player: undefined;
 };
 
 const Stack = createStackNavigator<RootStackParamList>();
 
+// Only show MiniPlayer when the full player is NOT open
+const ConditionalMiniPlayer = () => {
+  const isPlayerOpen = useUIStore((s) => s.isPlayerOpen);
+  if (isPlayerOpen) return null;
+  return <MiniPlayer />;
+};
+
 export const RootNavigator = () => {
   return (
     <View style={styles.root}>
       <Stack.Navigator screenOptions={{ headerShown: false }}>
-        <Stack.Screen name="MainDrawer" component={DrawerNavigator} />
+        <Stack.Screen name="MainTabs" component={BottomTabs} />
         <Stack.Screen name="Search" component={SearchScreen} />
-        <Stack.Screen name="Player" component={PlayerScreen} />
+        <Stack.Screen
+          name="Player"
+          component={PlayerScreen}
+          options={{ presentation: "modal" }}
+        />
       </Stack.Navigator>
-      <MiniPlayer />
+      <ConditionalMiniPlayer />
     </View>
   );
 };
 
 const styles = StyleSheet.create({
-  root: {
-    flex: 1,
-  },
+  root: { flex: 1 },
 });
