@@ -21,19 +21,44 @@ import {
 import { useThemeStore } from '@/store/theme.store';
 import { colors } from '@/theme/colors';
 
-const { height: SCREEN_HEIGHT, width: SCREEN_WIDTH } = Dimensions.get('window');
+const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 
-async function fetchLyrics(artist: string, title: string): Promise<string[]> {
+// ── lyrics fetchers ──────────────────────────────────────────────────────────
+
+/** 1. lrclib.net — broad multilingual catalog, good for Bollywood */
+async function fetchFromLrcLib(artist: string, title: string): Promise<string[]> {
     try {
-        // Clean up artist/title for the API
         const cleanArtist = artist.split(',')[0].trim();
-        const cleanTitle = title.replace(/\(.*?\)/g, '').trim();
-        const url = `https://api.lyrics.ovh/v1/${encodeURIComponent(cleanArtist)}/${encodeURIComponent(cleanTitle)}`;
+        const cleanTitle = title.replace(/\(.*?\)/g, '').replace(/&quot;/g, '"').trim();
+        const url = `https://lrclib.net/api/get?artist_name=${encodeURIComponent(cleanArtist)}&track_name=${encodeURIComponent(cleanTitle)}`;
         const res = await fetch(url, { signal: AbortSignal.timeout(6000) });
         if (!res.ok) return [];
         const json = await res.json();
+        // prefer synced lyrics (lrc format), fall back to plain text
+        const raw: string = json.syncedLyrics ?? json.plainLyrics ?? '';
+        if (!raw) return [];
+        return raw
+            .split('\n')
+            .map((l: string) => l.replace(/^\[.*?\]\s?/, '').trim()) // strip timestamps
+            .filter((l: string, i: number, arr: string[]) => {
+                if (!l) return i > 0 && arr[i - 1] !== '';
+                return true;
+            });
+    } catch {
+        return [];
+    }
+}
+
+/** 2. lyrics.ovh — English / Western fallback */
+async function fetchFromLyricsOvh(artist: string, title: string): Promise<string[]> {
+    try {
+        const cleanArtist = artist.split(',')[0].trim();
+        const cleanTitle = title.replace(/\(.*?\)/g, '').trim();
+        const url = `https://api.lyrics.ovh/v1/${encodeURIComponent(cleanArtist)}/${encodeURIComponent(cleanTitle)}`;
+        const res = await fetch(url, { signal: AbortSignal.timeout(5000) });
+        if (!res.ok) return [];
+        const json = await res.json();
         if (!json.lyrics) return [];
-        // Split into lines, remove blank duplicates
         return json.lyrics
             .split('\n')
             .map((l: string) => l.trim())
@@ -45,6 +70,16 @@ async function fetchLyrics(artist: string, title: string): Promise<string[]> {
         return [];
     }
 }
+
+async function fetchLyrics(artist: string, title: string): Promise<string[]> {
+    // Try lrclib first (better for Bollywood/Hindi)
+    const lines = await fetchFromLrcLib(artist, title);
+    if (lines.length > 0) return lines;
+    // Fall back to lyrics.ovh
+    return fetchFromLyricsOvh(artist, title);
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 
 type Props = {
     visible: boolean;
@@ -64,6 +99,7 @@ export const LyricsModal: React.FC<Props> = ({
 }) => {
     const colorScheme = useThemeStore((s) => s.colorScheme);
     const palette = colors[colorScheme];
+    const isDark = colorScheme === 'dark';
 
     const [lyrics, setLyrics] = useState<string[]>([]);
     const [loading, setLoading] = useState(false);
@@ -111,6 +147,18 @@ export const LyricsModal: React.FC<Props> = ({
         }
     }, [activeIndex, lyrics.length]);
 
+    // Theme-aware gradient colors
+    const gradColors: [string, string, string] = isDark
+        ? ['#0D0D0D', '#181818', '#0D0D0D']
+        : ['#F0F0F5', '#FAFAFA', '#F0F0F5'];
+
+    const textMain = isDark ? '#FFFFFF' : '#111111';
+    const textDim = isDark ? 'rgba(255,255,255,0.25)' : 'rgba(0,0,0,0.22)';
+    const textPast = isDark ? 'rgba(255,255,255,0.18)' : 'rgba(0,0,0,0.15)';
+    const textMuted = isDark ? 'rgba(255,255,255,0.45)' : 'rgba(0,0,0,0.4)';
+    const borderColor = isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.07)';
+    const handleColor = isDark ? 'rgba(255,255,255,0.3)' : 'rgba(0,0,0,0.18)';
+
     return (
         <Modal
             visible={visible}
@@ -126,9 +174,9 @@ export const LyricsModal: React.FC<Props> = ({
             <Animated.View
                 style={[styles.sheet, { transform: [{ translateY: slideAnim }] }]}
             >
-                {/* Dark gradient background like Spotify */}
+                {/* Theme-aware gradient background */}
                 <LinearGradient
-                    colors={['#0D0D0D', '#1A1A1A', '#0D0D0D']}
+                    colors={gradColors}
                     style={StyleSheet.absoluteFillObject}
                     start={{ x: 0, y: 0 }}
                     end={{ x: 0, y: 1 }}
@@ -136,31 +184,36 @@ export const LyricsModal: React.FC<Props> = ({
 
                 {/* Header */}
                 <View style={styles.header}>
-                    <View style={styles.handle} />
-                    <Text style={styles.headerTitle}>Lyrics</Text>
+                    <View style={[styles.handle, { backgroundColor: handleColor }]} />
+                    <Text style={[styles.headerTitle, { color: textMain }]}>Lyrics</Text>
                     <TouchableOpacity onPress={onClose} style={styles.closeBtn}>
-                        <Ionicons name="chevron-down" size={24} color="#fff" />
+                        <Ionicons name="chevron-down" size={24} color={textMain} />
                     </TouchableOpacity>
                 </View>
 
                 {/* Song info */}
-                <View style={styles.songInfo}>
-                    <Text style={styles.songName} numberOfLines={1}>{songName}</Text>
-                    <Text style={styles.artistName} numberOfLines={1}>{artistName}</Text>
+                <View style={[styles.songInfo, { borderBottomColor: borderColor }]}>
+                    <Text style={[styles.songName, { color: textMain }]} numberOfLines={1}>{songName}</Text>
+                    <Text style={[styles.artistName, { color: textMuted }]} numberOfLines={1}>{artistName}</Text>
                 </View>
 
                 {/* Lyrics list */}
                 {loading && (
                     <View style={styles.center}>
-                        <ActivityIndicator color="#FF8A00" size="large" />
-                        <Text style={styles.loadingText}>Loading lyrics…</Text>
+                        <ActivityIndicator color={palette.primary} size="large" />
+                        <Text style={[styles.loadingText, { color: textMuted }]}>Loading lyrics…</Text>
                     </View>
                 )}
 
                 {!loading && error && (
                     <View style={styles.center}>
-                        <Ionicons name="musical-notes-outline" size={48} color="rgba(255,255,255,0.3)" />
-                        <Text style={styles.errorText}>Lyrics not available for this song.</Text>
+                        <Ionicons name="musical-notes-outline" size={48} color={textDim} />
+                        <Text style={[styles.errorText, { color: textMuted }]}>
+                            Lyrics not available for this song.
+                        </Text>
+                        <Text style={[styles.errorSub, { color: textPast }]}>
+                            Try searching on Google for "{songName.split('(')[0].trim()} lyrics"
+                        </Text>
                     </View>
                 )}
 
@@ -179,8 +232,9 @@ export const LyricsModal: React.FC<Props> = ({
                                 <Text
                                     style={[
                                         styles.lyricLine,
-                                        isActive && styles.lyricLineActive,
-                                        isPast && styles.lyricLinePast,
+                                        { color: textDim },
+                                        isActive && [styles.lyricLineActive, { color: textMain }],
+                                        isPast && { color: textPast },
                                         !item && styles.lyricBlank,
                                     ]}
                                 >
@@ -220,11 +274,9 @@ const styles = StyleSheet.create({
         width: 40,
         height: 4,
         borderRadius: 2,
-        backgroundColor: 'rgba(255,255,255,0.3)',
         marginBottom: 14,
     },
     headerTitle: {
-        color: '#fff',
         fontSize: 16,
         fontWeight: '700',
         letterSpacing: 0.5,
@@ -239,16 +291,13 @@ const styles = StyleSheet.create({
         paddingHorizontal: 28,
         paddingBottom: 12,
         borderBottomWidth: 1,
-        borderBottomColor: 'rgba(255,255,255,0.08)',
         marginBottom: 6,
     },
     songName: {
-        color: '#fff',
         fontSize: 14,
         fontWeight: '600',
     },
     artistName: {
-        color: 'rgba(255,255,255,0.5)',
         fontSize: 12,
         marginTop: 2,
     },
@@ -258,14 +307,19 @@ const styles = StyleSheet.create({
         justifyContent: 'center',
         gap: 14,
         paddingBottom: 60,
+        paddingHorizontal: 32,
     },
-    loadingText: { color: 'rgba(255,255,255,0.5)', fontSize: 14, marginTop: 8 },
+    loadingText: { fontSize: 14, marginTop: 8 },
     errorText: {
-        color: 'rgba(255,255,255,0.45)',
         fontSize: 14,
         textAlign: 'center',
-        paddingHorizontal: 40,
+        paddingHorizontal: 20,
         lineHeight: 22,
+    },
+    errorSub: {
+        fontSize: 12,
+        textAlign: 'center',
+        lineHeight: 18,
     },
     lyricsContent: {
         paddingHorizontal: 28,
@@ -275,17 +329,12 @@ const styles = StyleSheet.create({
     lyricLine: {
         fontSize: 22,
         fontWeight: '700',
-        color: 'rgba(255,255,255,0.25)',
         lineHeight: 38,
         marginVertical: 2,
     },
     lyricLineActive: {
-        color: '#FFFFFF',
         fontSize: 26,
         lineHeight: 44,
-    },
-    lyricLinePast: {
-        color: 'rgba(255,255,255,0.18)',
     },
     lyricBlank: {
         lineHeight: 20,

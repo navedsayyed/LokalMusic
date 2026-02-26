@@ -1,120 +1,385 @@
+/**
+ * PlaylistScreen — "Your Library" (Spotify-style)
+ *
+ * Tabs: Playlists | Downloads
+ *
+ * Features:
+ *  - Create / rename / delete playlists
+ *  - View and play downloaded (offline) songs
+ *  - Liked Songs auto-playlist
+ */
+
 import { Ionicons } from '@expo/vector-icons';
+import { useNavigation } from '@react-navigation/native';
 import React, { useState } from 'react';
 import {
+  Alert,
   FlatList,
   Image,
+  Modal,
+  Pressable,
   StyleSheet,
   Text,
+  TextInput,
   TouchableOpacity,
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { usePlayer } from '@/hooks/usePlayer';
+import { deleteSongDownload } from '@/services/player/download.service';
+import { Playlist, useLibraryStore } from '@/store/library.store';
 import { useThemeStore } from '@/store/theme.store';
 import { colors } from '@/theme/colors';
 
-type Playlist = {
-  id: string;
-  name: string;
-  songCount: number;
-  image?: string;
-};
-
-const MOCK_PLAYLISTS: Playlist[] = [
-  { id: '1', name: 'Favorites', songCount: 24, image: 'https://c.saavncdn.com/584/Jab-Harry-Met-Sejal-Hindi-2017-20170803161007-500x500.jpg' },
-  { id: '2', name: 'Chill Vibes', songCount: 18, image: 'https://c.saavncdn.com/430/Aashiqui-2-Hindi-2013-500x500.jpg' },
-  { id: '3', name: 'Workout Hits', songCount: 32, image: 'https://c.saavncdn.com/161/Save-Your-Tears-English-2020-20201017050136-500x500.jpg' },
-  { id: '4', name: 'Late Night', songCount: 15, image: 'https://c.saavncdn.com/830/Without-You-English-2021-20210618141520-500x500.jpg' },
-];
+type LibTab = 'Playlists' | 'Downloads';
 
 export const PlaylistScreen = () => {
   const colorScheme = useThemeStore((s) => s.colorScheme);
   const palette = colors[colorScheme];
-  const [activeTab, setActiveTab] = useState<'Favorites' | 'Playlists'>('Playlists');
+  const navigation = useNavigation<any>();
+  const { playFromSearch } = usePlayer();
 
-  const renderHeader = () => (
-    <View style={styles.header}>
-      <Text style={[styles.title, { color: palette.text }]}>{activeTab}</Text>
-      <TouchableOpacity style={[styles.createBtn, { backgroundColor: palette.primary }]}>
-        <Ionicons name="add" size={20} color="#fff" />
-        <Text style={styles.createBtnText}>New Playlist</Text>
+  const [activeTab, setActiveTab] = useState<LibTab>('Playlists');
+  const [createModalVisible, setCreateModalVisible] = useState(false);
+  const [newPlaylistName, setNewPlaylistName] = useState('');
+  const [renameTarget, setRenameTarget] = useState<Playlist | null>(null);
+  const [renameText, setRenameText] = useState('');
+
+  const playlists = useLibraryStore((s) => s.playlists);
+  const likedSongs = useLibraryStore((s) => s.likedSongs);
+  const downloads = useLibraryStore((s) => s.downloads);
+  const createPlaylist = useLibraryStore((s) => s.createPlaylist);
+  const deletePlaylist = useLibraryStore((s) => s.deletePlaylist);
+  const renamePlaylist = useLibraryStore((s) => s.renamePlaylist);
+
+  // ── Helpers ──────────────────────────────────────────────
+  const handleCreate = () => {
+    const name = newPlaylistName.trim();
+    if (!name) return;
+    createPlaylist(name);
+    setNewPlaylistName('');
+    setCreateModalVisible(false);
+  };
+
+  const handleRename = () => {
+    if (!renameTarget || !renameText.trim()) return;
+    renamePlaylist(renameTarget.id, renameText.trim());
+    setRenameTarget(null);
+    setRenameText('');
+  };
+
+  const handleDeletePlaylist = (pl: Playlist) => {
+    Alert.alert('Delete Playlist', `Delete "${pl.name}"?`, [
+      { text: 'Cancel', style: 'cancel' },
+      { text: 'Delete', style: 'destructive', onPress: () => deletePlaylist(pl.id) },
+    ]);
+  };
+
+  const handleDeleteDownload = (songId: string, name: string) => {
+    Alert.alert('Remove Download', `Remove "${name}" from downloads?`, [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Remove', style: 'destructive',
+        onPress: () => deleteSongDownload(songId),
+      },
+    ]);
+  };
+
+  // ── Row components ────────────────────────────────────────────
+
+  const LikedSongsRow = () => (
+    <TouchableOpacity
+      style={styles.row}
+      activeOpacity={0.7}
+      onPress={() => {
+        if (likedSongs.length > 0) {
+          playFromSearch(likedSongs, 0);
+          navigation.navigate('Player');
+        }
+      }}
+    >
+      <View style={[styles.thumb, styles.likedThumb]}>
+        <Ionicons name="heart" size={28} color="#fff" />
+      </View>
+      <View style={styles.info}>
+        <Text style={[styles.name, { color: palette.text }]}>Liked Songs</Text>
+        <Text style={[styles.sub, { color: palette.textSecondary }]}>
+          Playlist · {likedSongs.length} song{likedSongs.length !== 1 ? 's' : ''}
+        </Text>
+      </View>
+      <TouchableOpacity
+        onPress={() => likedSongs.length > 0 && playFromSearch(likedSongs, 0)}
+        hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+      >
+        <Ionicons name="play-circle" size={36} color={palette.primary} />
       </TouchableOpacity>
-    </View>
+    </TouchableOpacity>
   );
 
+  const PlaylistRow = ({ item }: { item: Playlist }) => {
+    const cover = item.songs.find((s) => s.imageUrl)?.imageUrl;
+    return (
+      <TouchableOpacity style={styles.row} activeOpacity={0.7}>
+        {cover ? (
+          <Image source={{ uri: cover }} style={styles.thumb} />
+        ) : (
+          <View style={[styles.thumb, { backgroundColor: palette.backgroundSecondary, alignItems: 'center', justifyContent: 'center' }]}>
+            <Ionicons name="musical-notes" size={24} color={palette.textSecondary} />
+          </View>
+        )}
+        <View style={styles.info}>
+          <Text style={[styles.name, { color: palette.text }]} numberOfLines={1}>{item.name}</Text>
+          <Text style={[styles.sub, { color: palette.textSecondary }]}>
+            Playlist · {item.songs.length} song{item.songs.length !== 1 ? 's' : ''}
+          </Text>
+        </View>
+        <TouchableOpacity
+          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+          onPress={() =>
+            Alert.alert(item.name, '', [
+              { text: 'Rename', onPress: () => { setRenameTarget(item); setRenameText(item.name); } },
+              { text: 'Delete', style: 'destructive', onPress: () => handleDeletePlaylist(item) },
+              { text: 'Cancel', style: 'cancel' },
+            ])
+          }
+        >
+          <Ionicons name="ellipsis-horizontal" size={20} color={palette.textSecondary} />
+        </TouchableOpacity>
+      </TouchableOpacity>
+    );
+  };
+
+  // ── Main render ───────────────────────────────────────────────
+
   return (
-    <SafeAreaView style={[styles.safe, { backgroundColor: palette.background }]}>
-      <View style={[styles.container, { backgroundColor: palette.background }]}>
-        {renderHeader()}
+    <SafeAreaView style={[styles.safe, { backgroundColor: palette.background }]} edges={['top']}>
+
+      {/* Header */}
+      <View style={styles.header}>
+        <View style={[styles.avatar, { backgroundColor: palette.primary }]}>
+          <Text style={styles.avatarText}>Y</Text>
+        </View>
+        <Text style={[styles.title, { color: palette.text }]}>Your Library</Text>
+        <TouchableOpacity
+          style={[styles.headerBtn, { backgroundColor: palette.backgroundSecondary }]}
+          onPress={() => setCreateModalVisible(true)}
+        >
+          <Ionicons name="add" size={22} color={palette.text} />
+        </TouchableOpacity>
+      </View>
+
+      {/* Tab chips */}
+      <View style={styles.chips}>
+        {(['Playlists', 'Downloads'] as LibTab[]).map((tab) => (
+          <TouchableOpacity
+            key={tab}
+            style={[
+              styles.chip,
+              {
+                backgroundColor: activeTab === tab ? palette.primary : palette.backgroundSecondary,
+                borderColor: activeTab === tab ? palette.primary : palette.border,
+              },
+            ]}
+            onPress={() => setActiveTab(tab)}
+          >
+            <Text style={[styles.chipText, { color: activeTab === tab ? '#fff' : palette.textSecondary }]}>
+              {tab}
+            </Text>
+          </TouchableOpacity>
+        ))}
+      </View>
+
+      {/* ── PLAYLISTS TAB ── */}
+      {activeTab === 'Playlists' && (
         <FlatList
-          data={MOCK_PLAYLISTS}
+          data={playlists}
           keyExtractor={(item) => item.id}
-          contentContainerStyle={{ paddingBottom: 140 }}
+          contentContainerStyle={{ paddingBottom: 160, paddingHorizontal: 16 }}
           showsVerticalScrollIndicator={false}
+          ListHeaderComponent={<LikedSongsRow />}
           ListEmptyComponent={
-            <View style={styles.emptyState}>
-              <Ionicons name="musical-notes-outline" size={56} color={palette.border} />
-              <Text style={[styles.emptyText, { color: palette.textSecondary }]}>No playlists yet</Text>
+            <View style={styles.empty}>
+              <Ionicons name="library-outline" size={52} color={palette.border} />
+              <Text style={[styles.emptyTitle, { color: palette.text }]}>Create your first playlist</Text>
+              <Text style={[styles.emptySub, { color: palette.textSecondary }]}>
+                Tap + to start building your library
+              </Text>
+              <TouchableOpacity
+                style={[styles.emptyBtn, { backgroundColor: palette.primary }]}
+                onPress={() => setCreateModalVisible(true)}
+              >
+                <Text style={styles.emptyBtnText}>Create playlist</Text>
+              </TouchableOpacity>
             </View>
           }
-          renderItem={({ item }) => (
-            <TouchableOpacity style={styles.playlistRow} activeOpacity={0.7}>
-              {item.image ? (
-                <Image source={{ uri: item.image }} style={styles.playlistThumb} />
+          renderItem={({ item }) => <PlaylistRow item={item} />}
+        />
+      )}
+
+      {/* ── DOWNLOADS TAB ── */}
+      {activeTab === 'Downloads' && (
+        <FlatList
+          data={downloads}
+          keyExtractor={(item) => item.id}
+          contentContainerStyle={{ paddingBottom: 160, paddingHorizontal: 16 }}
+          showsVerticalScrollIndicator={false}
+          ListEmptyComponent={
+            <View style={styles.empty}>
+              <Ionicons name="download-outline" size={52} color={palette.border} />
+              <Text style={[styles.emptyTitle, { color: palette.text }]}>No downloads yet</Text>
+              <Text style={[styles.emptySub, { color: palette.textSecondary }]}>
+                Download songs to listen offline — tap ⋯ on any song
+              </Text>
+            </View>
+          }
+          renderItem={({ item, index }) => (
+            <TouchableOpacity
+              style={styles.row}
+              activeOpacity={0.7}
+              onPress={() => { playFromSearch(downloads, index); navigation.navigate('Player'); }}
+            >
+              {item.imageUrl ? (
+                <Image source={{ uri: item.imageUrl }} style={styles.thumb} />
               ) : (
-                <View style={[styles.playlistThumb, styles.thumbPlaceholder, { backgroundColor: palette.backgroundSecondary }]}>
-                  <Ionicons name="musical-notes" size={24} color={palette.textSecondary} />
+                <View style={[styles.thumb, { backgroundColor: palette.backgroundSecondary, alignItems: 'center', justifyContent: 'center' }]}>
+                  <Ionicons name="musical-notes" size={22} color={palette.textSecondary} />
                 </View>
               )}
-              <View style={styles.playlistInfo}>
-                <Text style={[styles.playlistName, { color: palette.text }]}>{item.name}</Text>
-                <Text style={[styles.playlistCount, { color: palette.textSecondary }]}>
-                  {item.songCount} songs
-                </Text>
+              <View style={styles.info}>
+                <Text style={[styles.name, { color: palette.text }]} numberOfLines={1}>{item.name}</Text>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                  <Ionicons name="checkmark-circle" size={12} color="#1DB954" />
+                  <Text style={[styles.sub, { color: palette.textSecondary }]} numberOfLines={1}>
+                    {item.primaryArtists}
+                  </Text>
+                </View>
               </View>
-              <TouchableOpacity style={styles.playlistPlayBtn}>
-                <Ionicons name="play-circle" size={36} color={palette.primary} />
+              <TouchableOpacity
+                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                onPress={() => handleDeleteDownload(item.id, item.name)}
+              >
+                <Ionicons name="trash-outline" size={20} color={palette.textSecondary} />
               </TouchableOpacity>
             </TouchableOpacity>
           )}
         />
-      </View>
+      )}
+
+      {/* ── CREATE PLAYLIST MODAL ── */}
+      <Modal
+        visible={createModalVisible}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setCreateModalVisible(false)}
+      >
+        <Pressable style={styles.backdrop} onPress={() => setCreateModalVisible(false)} />
+        <View style={[styles.sheet, { backgroundColor: palette.card }]}>
+          <Text style={[styles.sheetTitle, { color: palette.text }]}>New Playlist</Text>
+          <TextInput
+            style={[styles.input, { color: palette.text, borderColor: palette.border, backgroundColor: palette.backgroundSecondary }]}
+            placeholder="Playlist name"
+            placeholderTextColor={palette.textSecondary}
+            value={newPlaylistName}
+            onChangeText={setNewPlaylistName}
+            autoFocus
+            returnKeyType="done"
+            onSubmitEditing={handleCreate}
+          />
+          <View style={styles.sheetActions}>
+            <TouchableOpacity style={[styles.sheetBtn, { borderColor: palette.border }]} onPress={() => setCreateModalVisible(false)}>
+              <Text style={[styles.sheetBtnText, { color: palette.text }]}>Cancel</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={[styles.sheetBtn, { backgroundColor: palette.primary, borderColor: palette.primary }]} onPress={handleCreate}>
+              <Text style={[styles.sheetBtnText, { color: '#fff' }]}>Create</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
+      {/* ── RENAME MODAL ── */}
+      <Modal
+        visible={!!renameTarget}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setRenameTarget(null)}
+      >
+        <Pressable style={styles.backdrop} onPress={() => setRenameTarget(null)} />
+        <View style={[styles.sheet, { backgroundColor: palette.card }]}>
+          <Text style={[styles.sheetTitle, { color: palette.text }]}>Rename Playlist</Text>
+          <TextInput
+            style={[styles.input, { color: palette.text, borderColor: palette.border, backgroundColor: palette.backgroundSecondary }]}
+            placeholder="Playlist name"
+            placeholderTextColor={palette.textSecondary}
+            value={renameText}
+            onChangeText={setRenameText}
+            autoFocus
+            returnKeyType="done"
+            onSubmitEditing={handleRename}
+          />
+          <View style={styles.sheetActions}>
+            <TouchableOpacity style={[styles.sheetBtn, { borderColor: palette.border }]} onPress={() => setRenameTarget(null)}>
+              <Text style={[styles.sheetBtnText, { color: palette.text }]}>Cancel</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={[styles.sheetBtn, { backgroundColor: palette.primary, borderColor: palette.primary }]} onPress={handleRename}>
+              <Text style={[styles.sheetBtnText, { color: '#fff' }]}>Save</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
     </SafeAreaView>
   );
 };
 
 const styles = StyleSheet.create({
   safe: { flex: 1 },
-  container: { flex: 1, paddingHorizontal: 16 },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingTop: 16,
-    paddingBottom: 16,
+    paddingHorizontal: 16,
+    paddingTop: 8,
+    paddingBottom: 12,
+    gap: 12,
   },
-  title: { fontSize: 24, fontWeight: '700' },
-  createBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    borderRadius: 20,
+  avatar: { width: 34, height: 34, borderRadius: 17, alignItems: 'center', justifyContent: 'center' },
+  avatarText: { color: '#fff', fontWeight: '700', fontSize: 16 },
+  title: { flex: 1, fontSize: 22, fontWeight: '700' },
+  headerBtn: { width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center' },
+
+  chips: { flexDirection: 'row', gap: 8, paddingHorizontal: 16, marginBottom: 12 },
+  chip: { paddingHorizontal: 14, paddingVertical: 6, borderRadius: 20, borderWidth: 1 },
+  chipText: { fontSize: 13, fontWeight: '600' },
+
+  row: { flexDirection: 'row', alignItems: 'center', paddingVertical: 8, gap: 14 },
+  thumb: { width: 60, height: 60, borderRadius: 8 },
+  likedThumb: { backgroundColor: '#4B2DB5', alignItems: 'center', justifyContent: 'center' },
+  info: { flex: 1, minWidth: 0 },
+  name: { fontSize: 15, fontWeight: '600' },
+  sub: { fontSize: 13, marginTop: 3 },
+
+  empty: { alignItems: 'center', marginTop: 60, gap: 10, paddingHorizontal: 32 },
+  emptyTitle: { fontSize: 18, fontWeight: '700', textAlign: 'center' },
+  emptySub: { fontSize: 13, textAlign: 'center', lineHeight: 20 },
+  emptyBtn: { marginTop: 8, paddingHorizontal: 28, paddingVertical: 12, borderRadius: 24 },
+  emptyBtnText: { color: '#fff', fontWeight: '700', fontSize: 14 },
+
+  backdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)' },
+  sheet: {
+    position: 'absolute', bottom: 0, left: 0, right: 0,
+    borderTopLeftRadius: 20, borderTopRightRadius: 20,
+    padding: 24, gap: 16,
   },
-  createBtnText: { color: '#fff', fontSize: 13, fontWeight: '600' },
-  playlistRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 10,
-    gap: 14,
+  sheetTitle: { fontSize: 18, fontWeight: '700', textAlign: 'center' },
+  input: {
+    borderWidth: 1, borderRadius: 12,
+    paddingHorizontal: 14, paddingVertical: 12,
+    fontSize: 15,
   },
-  playlistThumb: { width: 60, height: 60, borderRadius: 12 },
-  thumbPlaceholder: { alignItems: 'center', justifyContent: 'center' },
-  playlistInfo: { flex: 1 },
-  playlistName: { fontSize: 16, fontWeight: '600' },
-  playlistCount: { fontSize: 13, marginTop: 3 },
-  playlistPlayBtn: {},
-  emptyState: { alignItems: 'center', marginTop: 80, gap: 12 },
-  emptyText: { fontSize: 14 },
+  sheetActions: { flexDirection: 'row', gap: 12 },
+  sheetBtn: {
+    flex: 1, paddingVertical: 12, borderRadius: 12,
+    alignItems: 'center', borderWidth: 1,
+  },
+  sheetBtnText: { fontWeight: '600', fontSize: 14 },
 });

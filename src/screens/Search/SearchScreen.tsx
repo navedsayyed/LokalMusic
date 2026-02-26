@@ -139,11 +139,43 @@ export const SearchScreen = () => {
 
           {loading && <ActivityIndicator style={{ marginTop: 32 }} color={palette.primary} />}
 
-          {/* Empty state */}
+          {/* Browse categories — shown when no query typed */}
           {!loading && results.length === 0 && query.length === 0 && (
-            <View style={styles.emptyState}>
-              <Ionicons name="search" size={56} color={palette.border} />
-              <Text style={[styles.emptyText, { color: palette.textSecondary }]}>Search for songs, artists...</Text>
+            <View style={{ paddingHorizontal: 4, paddingTop: 8 }}>
+              <Text style={[{ fontSize: 16, fontWeight: '700', marginBottom: 12, marginLeft: 4 }, { color: palette.text }]}>
+                Browse categories
+              </Text>
+              {[
+                ['English', '#1DB954'],
+                ['Hindi', '#E91E8C'],
+                ['Pop', '#FF6B35'],
+                ['Rock', '#8B5CF6'],
+                ['Punjabi', '#F59E0B'],
+                ['Lo-Fi', '#06B6D4'],
+                ['R&B', '#EF4444'],
+                ['Rap', '#374151'],
+              ].reduce<string[][]>((rows, item, i) => {
+                if (i % 2 === 0) rows.push([item[0], item[1]]);
+                else { rows[rows.length - 1].push(item[0], item[1]); }
+                return rows;
+              }, []).map((row, ri) => (
+                <View key={ri} style={{ flexDirection: 'row', gap: 8, marginBottom: 8 }}>
+                  <TouchableOpacity
+                    style={{ flex: 1, height: 56, borderRadius: 8, backgroundColor: row[1], justifyContent: 'flex-end', padding: 10, overflow: 'hidden' }}
+                    onPress={() => setQuery(row[0])}
+                  >
+                    <Text style={{ color: '#fff', fontWeight: '700', fontSize: 14 }}>{row[0]}</Text>
+                  </TouchableOpacity>
+                  {row[2] && (
+                    <TouchableOpacity
+                      style={{ flex: 1, height: 56, borderRadius: 8, backgroundColor: row[3], justifyContent: 'flex-end', padding: 10, overflow: 'hidden' }}
+                      onPress={() => setQuery(row[2])}
+                    >
+                      <Text style={{ color: '#fff', fontWeight: '700', fontSize: 14 }}>{row[2]}</Text>
+                    </TouchableOpacity>
+                  )}
+                </View>
+              ))}
             </View>
           )}
 

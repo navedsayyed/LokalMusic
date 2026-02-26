@@ -16,19 +16,21 @@ import {
   View,
 } from 'react-native';
 
+import { deleteSongDownload, downloadSong } from '@/services/player/download.service';
+import { useLibraryStore } from '@/store/library.store';
+import { usePlayerStore } from '@/store/player.store';
 import { useThemeStore } from '@/store/theme.store';
 import { colors } from '@/theme/colors';
 import { Song } from '@/types/music.types';
-import { usePlayerStore } from '@/store/player.store';
 
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 const SHEET_HEIGHT = SCREEN_HEIGHT * 0.72;
 
 type SongOption = {
-    icon: keyof typeof Ionicons.glyphMap;
-    label: string;
-    color?: string;
-    onPress: () => void;
+  icon: keyof typeof Ionicons.glyphMap;
+  label: string;
+  color?: string;
+  onPress: () => void;
 };
 
 type Props = {
@@ -40,10 +42,10 @@ type Props = {
 };
 
 const formatSeconds = (secs: number) => {
-    if (!secs) return '0:00';
-    const m = Math.floor(secs / 60);
-    const s = secs % 60;
-    return `${m}:${s.toString().padStart(2, '0')}`;
+  if (!secs) return '0:00';
+  const m = Math.floor(secs / 60);
+  const s = secs % 60;
+  return `${m}:${s.toString().padStart(2, '0')}`;
 };
 
 export const SongOptionsSheet: React.FC<Props> = ({
@@ -60,6 +62,11 @@ export const SongOptionsSheet: React.FC<Props> = ({
   const navigation = useNavigation<any>();
   const enqueueNext = usePlayerStore((s) => s.enqueueNext);
   const enqueueToEnd = usePlayerStore((s) => s.enqueueToEnd);
+  const { toggleLike, isLiked, isDownloaded, playlists, addSongToPlaylist } = useLibraryStore();
+  const liked = song ? isLiked(song.id) : false;
+  const downloaded = song ? isDownloaded(song.id) : false;
+  const [downloading, setDownloading] = React.useState(false);
+  const [dlProgress, setDlProgress] = React.useState(0);
 
   useEffect(() => {
     if (visible) {
@@ -120,8 +127,45 @@ export const SongOptionsSheet: React.FC<Props> = ({
   };
 
   const handleAddToPlaylist = () => {
-    Alert.alert('Added to playlist', `"${song.name}" added to Favorites playlist.`);
-    onClose();
+    if (!song) return;
+    if (playlists.length === 0) {
+      Alert.alert('No playlists', 'Create a playlist first from Your Library tab.');
+      onClose();
+      return;
+    }
+    Alert.alert(
+      'Add to Playlist',
+      'Choose a playlist:',
+      [
+        ...playlists.map((pl) => ({
+          text: pl.name,
+          onPress: () => { addSongToPlaylist(pl.id, song); onClose(); },
+        })),
+        { text: 'Cancel', style: 'cancel' as const },
+      ]
+    );
+  };
+
+  const handleDownload = async () => {
+    if (!song) return;
+    if (downloaded) {
+      Alert.alert('Remove Download', `Remove "${song.name}" from downloads?`, [
+        { text: 'Cancel', style: 'cancel' },
+        { text: 'Remove', style: 'destructive', onPress: () => { deleteSongDownload(song.id); onClose(); } },
+      ]);
+      return;
+    }
+    setDownloading(true);
+    setDlProgress(0);
+    await downloadSong(song, ({ progress, done, error }) => {
+      setDlProgress(progress);
+      if (done) {
+        setDownloading(false);
+        if (error) Alert.alert('Download failed', error);
+        else Alert.alert('Downloaded!', `"${song.name}" saved for offline listening. Find it in Your Library → Downloads.`);
+        onClose();
+      }
+    });
   };
 
   const handleGoToAlbum = () => {
@@ -143,8 +187,7 @@ export const SongOptionsSheet: React.FC<Props> = ({
   const handleDetails = () => {
     Alert.alert(
       song.name,
-      `Artist: ${song.primaryArtists || 'Unknown'}\nAlbum: ${
-        song.album?.name || 'Unknown'
+      `Artist: ${song.primaryArtists || 'Unknown'}\nAlbum: ${song.album?.name || 'Unknown'
       }\nDuration: ${song.duration ? formatSeconds(song.duration) + ' mins' : 'Unknown'}`,
     );
     onClose();
@@ -175,6 +218,12 @@ export const SongOptionsSheet: React.FC<Props> = ({
   };
 
   const OPTIONS: SongOption[] = [
+    {
+      icon: downloaded ? 'checkmark-circle-outline' : 'download-outline',
+      label: downloaded ? 'Downloaded ✓' : (downloading ? `Downloading ${Math.round(dlProgress * 100)}%` : 'Download'),
+      color: downloaded ? '#1DB954' : undefined,
+      onPress: handleDownload,
+    },
     {
       icon: 'play-skip-forward-outline',
       label: 'Play Next',
@@ -289,8 +338,8 @@ export const SongOptionsSheet: React.FC<Props> = ({
               {song.duration ? `  |  ${formatSeconds(song.duration)} mins` : ''}
             </Text>
           </View>
-          <TouchableOpacity style={styles.heartBtn}>
-            <Ionicons name="heart-outline" size={22} color={palette.primary} />
+          <TouchableOpacity style={styles.heartBtn} onPress={() => song && toggleLike(song)}>
+            <Ionicons name={liked ? 'heart' : 'heart-outline'} size={22} color={liked ? '#EF4444' : palette.primary} />
           </TouchableOpacity>
         </View>
 
@@ -336,61 +385,61 @@ export const SongOptionsSheet: React.FC<Props> = ({
 };
 
 const styles = StyleSheet.create({
-    backdrop: {
-        ...StyleSheet.absoluteFillObject,
-        backgroundColor: 'rgba(0,0,0,0.45)',
-    },
-    sheet: {
-        position: 'absolute',
-        bottom: 0,
-        left: 0,
-        right: 0,
-        borderTopLeftRadius: 24,
-        borderTopRightRadius: 24,
-        overflow: 'hidden',
-    },
-    handleContainer: {
-        alignItems: 'center',
-        paddingTop: 12,
-        paddingBottom: 4,
-    },
-    handle: {
-        width: 40,
-        height: 4,
-        borderRadius: 2,
-    },
-    songPreview: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        paddingHorizontal: 20,
-        paddingVertical: 14,
-        borderBottomWidth: 1,
-        gap: 12,
-    },
-    previewThumb: {
-        width: 52,
-        height: 52,
-        borderRadius: 10,
-        alignItems: 'center',
-        justifyContent: 'center',
-    },
-    previewInfo: { flex: 1, minWidth: 0 },
-    previewTitle: { fontSize: 15, fontWeight: '600' },
-    previewMeta: { fontSize: 12, marginTop: 3 },
-    heartBtn: { padding: 4 },
-    optionRow: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        paddingHorizontal: 20,
-        paddingVertical: 14,
-        gap: 16,
-    },
-    optionIconWrap: {
-        width: 38,
-        height: 38,
-        borderRadius: 19,
-        alignItems: 'center',
-        justifyContent: 'center',
-    },
-    optionLabel: { fontSize: 15, fontWeight: '400' },
+  backdrop: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0,0,0,0.45)',
+  },
+  sheet: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    overflow: 'hidden',
+  },
+  handleContainer: {
+    alignItems: 'center',
+    paddingTop: 12,
+    paddingBottom: 4,
+  },
+  handle: {
+    width: 40,
+    height: 4,
+    borderRadius: 2,
+  },
+  songPreview: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingVertical: 14,
+    borderBottomWidth: 1,
+    gap: 12,
+  },
+  previewThumb: {
+    width: 52,
+    height: 52,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  previewInfo: { flex: 1, minWidth: 0 },
+  previewTitle: { fontSize: 15, fontWeight: '600' },
+  previewMeta: { fontSize: 12, marginTop: 3 },
+  heartBtn: { padding: 4 },
+  optionRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingVertical: 14,
+    gap: 16,
+  },
+  optionIconWrap: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  optionLabel: { fontSize: 15, fontWeight: '400' },
 });

@@ -118,7 +118,7 @@ export const searchSongs = async (
   return data.data.results.map(mapSaavnSearchSong);
 };
 
-export const getTrendingSongs = async (query = 'top hindi hits 2024', limit = 30): Promise<Song[]> => {
+export const getTrendingSongs = async (query = 'top hits trending 2024', limit = 30): Promise<Song[]> => {
   return searchSongs(query, 1, limit);
 };
 
@@ -166,6 +166,30 @@ export const searchArtists = async (query: string, limit = 10): Promise<ArtistIt
   } catch {
     return [];
   }
+};
+
+/**
+ * Fetch a curated list of popular artists by querying their exact names in parallel.
+ * Much more reliable than a generic "top artists" query which returns label accounts.
+ */
+export const getPopularArtists = async (): Promise<ArtistItem[]> => {
+  const POPULAR_ARTISTS = [
+    'Arijit Singh', 'Shreya Ghoshal', 'A.R. Rahman',
+    'Neha Kakkar', 'Badshah', 'Sonu Nigam',
+    'Diljit Dosanjh', 'Jubin Nautiyal', 'Atif Aslam', 'Armaan Malik',
+  ];
+  const results = await Promise.all(
+    POPULAR_ARTISTS.map((name) => searchArtists(name, 1))
+  );
+  // Take first result from each, deduplicate by id
+  const seen = new Set<string>();
+  return results
+    .flatMap((r) => r.slice(0, 1))
+    .filter((a) => {
+      if (seen.has(a.id)) return false;
+      seen.add(a.id);
+      return true;
+    });
 };
 
 // ─── Album search ─────────────────────────────────────────────────────────────

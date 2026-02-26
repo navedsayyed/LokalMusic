@@ -145,8 +145,8 @@ export const HomeScreen = () => {
   useEffect(() => {
     setSuggestedLoading(true);
     Promise.all([
-      getTrendingSongs("arijit singh hits", 12),
-      searchArtists("popular bollywood hindi singer", 10),
+      getTrendingSongs("top hits 2024", 12),
+      searchArtists("top global artists popular", 10),
     ]).then(([s, a]) => {
       setSuggestedSongs(s);
       setSuggestedArtists(a);
@@ -156,17 +156,17 @@ export const HomeScreen = () => {
   useEffect(() => {
     if (activeTab === "Songs" && songs.length === 0) {
       setLoading(true);
-      getTrendingSongs("top hindi songs 2024", 30)
+      getTrendingSongs("top songs 2024", 30)
         .then(setSongs).catch(() => { }).finally(() => setLoading(false));
     }
     if (activeTab === "Artists" && artists.length === 0) {
       setLoading(true);
-      searchArtists("arijit singh bollywood hindi", 15)
+      searchArtists("top global artists popular", 15)
         .then(setArtists).catch(() => { }).finally(() => setLoading(false));
     }
     if (activeTab === "Albums" && albums.length === 0) {
       setLoading(true);
-      searchAlbums("top hindi bollywood 2024", 15)
+      searchAlbums("best albums 2024", 15)
         .then(setAlbums).catch(() => { }).finally(() => setLoading(false));
     }
   }, [activeTab]);
