@@ -16,7 +16,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 
 import { SongOptionsSheet } from "@/components/music/SongOptionsSheet";
 import { usePlayer } from "@/hooks/usePlayer";
-import { AlbumItem, ArtistItem, getTrendingSongs, searchAlbums, searchArtists } from "@/services/api/music.api";
+import { AlbumItem, ArtistItem, getPopularArtists, getTrendingSongs, searchAlbums } from "@/services/api/music.api";
 import { useThemeStore } from "@/store/theme.store";
 import { colors } from "@/theme/colors";
 import { Song } from "@/types/music.types";
@@ -146,7 +146,7 @@ export const HomeScreen = () => {
     setSuggestedLoading(true);
     Promise.all([
       getTrendingSongs("top hits 2024", 12),
-      searchArtists("top global artists popular", 10),
+      getPopularArtists(),
     ]).then(([s, a]) => {
       setSuggestedSongs(s);
       setSuggestedArtists(a);
@@ -161,7 +161,7 @@ export const HomeScreen = () => {
     }
     if (activeTab === "Artists" && artists.length === 0) {
       setLoading(true);
-      searchArtists("top global artists popular", 15)
+      getPopularArtists()
         .then(setArtists).catch(() => { }).finally(() => setLoading(false));
     }
     if (activeTab === "Albums" && albums.length === 0) {
