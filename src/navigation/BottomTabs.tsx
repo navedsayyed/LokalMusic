@@ -1,7 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
 import React from "react";
-import { Text } from "react-native";
+import { Text, TouchableOpacity, View } from "react-native";
 
 import { ArtistScreen } from "@/screens/Artist/ArtistScreen";
 import { HomeScreen } from "@/screens/Home/HomeScreen";
@@ -55,33 +55,58 @@ export const BottomTabs = () => {
         headerShown: false,
         tabBarActiveTintColor: palette.primary,
         tabBarInactiveTintColor: palette.tabInactive,
-        tabBarStyle: {
-          backgroundColor: palette.background,
-          borderTopColor: palette.border,
-          borderTopWidth: 1,
-          height: 64,
-          paddingBottom: 8,
-          paddingTop: 6,
-        },
         tabBarHideOnKeyboard: true,
-        tabBarLabel: ({ color }) =>
-          route.name === "Artist" ? null : (
-            <Text style={{ color, fontSize: 10, fontWeight: "500" }}>
-              {TAB_CONFIG[route.name]?.label ?? route.name}
-            </Text>
-          ),
-        tabBarIcon: ({ color, focused }) => {
-          if (route.name === "Artist") return null;
-          const cfg = TAB_CONFIG[route.name];
-          return (
-            <Ionicons
-              name={focused ? cfg.activeIcon : cfg.name}
-              size={22}
-              color={color}
-            />
-          );
-        },
       })}
+      tabBar={({ state, descriptors, navigation }) => (
+        <View
+          style={{
+            flexDirection: "row",
+            justifyContent: "space-evenly",
+            alignItems: "center",
+            backgroundColor: palette.background,
+            borderTopColor: palette.border,
+            borderTopWidth: 1,
+            height: 64,
+            paddingBottom: 8,
+            paddingTop: 6,
+          }}
+        >
+          {state.routes.map((route, idx) => {
+            if (route.name === "Artist") return null;
+            const { options } = descriptors[route.key];
+            const isFocused = state.index === idx;
+            const cfg = TAB_CONFIG[route.name];
+            return (
+              <TouchableOpacity
+                key={route.key}
+                onPress={() => navigation.navigate(route.name)}
+                style={{
+                  flex: 1,
+                  alignItems: "center",
+                  paddingVertical: 0,
+                }}
+                activeOpacity={0.8}
+              >
+                <Ionicons
+                  name={isFocused ? cfg.activeIcon : cfg.name}
+                  size={22}
+                  color={isFocused ? palette.primary : palette.tabInactive}
+                />
+                <Text
+                  style={{
+                    color: isFocused ? palette.primary : palette.tabInactive,
+                    fontSize: 10,
+                    fontWeight: "500",
+                    marginTop: 2,
+                  }}
+                >
+                  {cfg.label}
+                </Text>
+              </TouchableOpacity>
+            );
+          })}
+        </View>
+      )}
     >
       <Tab.Screen name="Home" component={HomeScreen} />
       <Tab.Screen name="Search" component={SearchScreen} />
