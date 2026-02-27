@@ -254,8 +254,8 @@ const PlaylistDetail = ({
             activeOpacity={0.7}
             onPress={() => closeMenu(onRename)}
           >
-            <View style={[styles.menuIconWrap, { backgroundColor: palette.backgroundSecondary }]}>
-              <Ionicons name="pencil-outline" size={18} color={palette.primary} />
+            <View style={[styles.menuIconWrap, { backgroundColor: palette.primary + '22' }]}>
+              <Ionicons name="create" size={18} color={palette.primary} />
             </View>
             <Text style={[styles.menuRowText, { color: palette.text }]}>Rename Playlist</Text>
             <Ionicons name="chevron-forward" size={16} color={palette.textSecondary} />
@@ -678,6 +678,8 @@ export const PlaylistScreen = () => {
             value={newPlaylistName}
             onChangeText={setNewPlaylistName}
             autoFocus
+            autoCorrect={false}
+            autoCapitalize="words"
             returnKeyType="done"
             onSubmitEditing={handleCreate}
           />
@@ -737,6 +739,8 @@ export const PlaylistScreen = () => {
             value={renameText}
             onChangeText={setRenameText}
             autoFocus
+            autoCorrect={false}
+            autoCapitalize="words"
             returnKeyType="done"
             onSubmitEditing={handleRename}
           />
