@@ -89,22 +89,36 @@ const pickAudioByQuality = <
   return first.url ?? first.link;
 };
 
-const mapSaavnSearchSong = (song: SaavnSearchSong): Song => ({
-  id: song.id,
-  name: song.name,
-  duration: Number(song.duration) || 0,
-  year: song.year,
-  album: song.album
-    ? {
-      id: song.album.id,
-      name: song.album.name,
-      imageUrl: pickBestImageFromUrls(song.image),
-    }
-    : undefined,
-  primaryArtists: song.primaryArtists,
-  imageUrl: pickBestImageFromUrls(song.image),
-  streamUrl: pickAudioByQuality(song.downloadUrl),
-});
+const mapSaavnSearchSong = (raw: any): Song => {
+  // JioSaavn API returns artist info under different keys – try them all
+  const primaryArtists: string =
+    (typeof raw.primaryArtists === 'string' && raw.primaryArtists) ||
+    (typeof raw.primary_artists === 'string' && raw.primary_artists) ||
+    (Array.isArray(raw.artists?.primary)
+      ? raw.artists.primary.map((a: any) => a.name).join(', ')
+      : '') ||
+    (Array.isArray(raw.artists?.all)
+      ? raw.artists.all.map((a: any) => a.name).join(', ')
+      : '') ||
+    '';
+
+  return {
+    id: raw.id,
+    name: raw.name,
+    duration: Number(raw.duration) || 0,
+    year: raw.year,
+    album: raw.album
+      ? {
+        id: raw.album.id,
+        name: raw.album.name,
+        imageUrl: pickBestImageFromUrls(raw.image),
+      }
+      : undefined,
+    primaryArtists,
+    imageUrl: pickBestImageFromUrls(raw.image),
+    streamUrl: pickAudioByQuality(raw.downloadUrl),
+  };
+};
 
 export const searchSongs = async (
   query: string,
@@ -127,8 +141,16 @@ export const getSongById = async (id: string): Promise<Song | null> => {
   const raw = data?.data?.[0];
   if (!raw) return null;
 
-  const primaryArtists =
-    raw.artists?.primary?.map((a) => a.name).join(', ') ?? '';
+  const artists = (raw as any).artists;
+  const primaryArtists: string =
+    (Array.isArray(artists?.primary) && artists.primary.length > 0
+      ? artists.primary.map((a: any) => a.name).join(', ')
+      : '') ||
+    (Array.isArray(artists?.all) && artists.all.length > 0
+      ? artists.all.map((a: any) => a.name).join(', ')
+      : '') ||
+    (typeof (raw as any).primaryArtists === 'string' ? (raw as any).primaryArtists : '') ||
+    '';
 
   return {
     id: raw.id,

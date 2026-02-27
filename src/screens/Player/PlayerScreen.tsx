@@ -170,7 +170,7 @@ export const PlayerScreen = () => {
               </Text>
               <Text
                 style={[styles.artistName, { color: palette.textSecondary }]}
-                numberOfLines={1}
+                numberOfLines={2}
               >
                 {current.primaryArtists}
               </Text>
@@ -378,7 +378,7 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   songTitle: { fontSize: 22, fontWeight: '700' },
-  artistName: { fontSize: 15, marginTop: 4 },
+  artistName: { fontSize: 16, marginTop: 4, fontWeight: '500' },
   likeBtn: { padding: 4 },
   progressSection: {},
   progressBarHit: { paddingVertical: 10 },

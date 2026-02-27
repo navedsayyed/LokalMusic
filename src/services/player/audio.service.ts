@@ -50,10 +50,17 @@ export const loadAndPlayCurrent = async () => {
         store.setPlaying(false);
         return;
       }
+      // Merge: keep original metadata (artist, name, image) if detailed fetch returned blanks
+      const merged = {
+        ...detailed,
+        primaryArtists: detailed.primaryArtists || song.primaryArtists,
+        name: detailed.name || song.name,
+        imageUrl: detailed.imageUrl || song.imageUrl,
+      };
       const newQueue = [...store.queue];
-      newQueue[store.currentIndex] = detailed;
+      newQueue[store.currentIndex] = merged;
       store.setQueueAndPlay(newQueue, store.currentIndex);
-      song = detailed;
+      song = merged;
     }
 
     await configureAudio();
