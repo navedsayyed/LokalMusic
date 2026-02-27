@@ -75,7 +75,7 @@ export const ProfileScreen = () => {
       case 'About':
         Alert.alert(
           'About & Privacy Policy',
-          'Lokal Music is a demo music player.\n\nPrivacy Policy:\n- We do not collect personal data.\n- All playback streams directly from the Saavn API.\n- Any preferences are stored only on your device using AsyncStorage.',
+          'LokalMusic is a demo music player.\n\nPrivacy Policy:\n- We do not collect personal data.\n- All playback streams directly from the Saavn API.\n- Any preferences are stored only on your device using AsyncStorage.',
         );
         break;
       default:

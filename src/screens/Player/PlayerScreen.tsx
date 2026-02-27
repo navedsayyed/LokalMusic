@@ -113,7 +113,7 @@ export const PlayerScreen = () => {
     if (!current) return;
     try {
       await Share.share({
-        message: `🎵 Listening to "${current.name}" by ${current.primaryArtists} on Lokal Music App`,
+        message: `🎵 Listening to "${current.name}" by ${current.primaryArtists} on LokalMusic`,
         title: current.name,
       });
     } catch {

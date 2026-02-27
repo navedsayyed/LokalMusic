@@ -1,7 +1,7 @@
 {
   "expo": {
-    "name": "lokal-music-app",
-    "slug": "lokal-music-app",
+    "name": "LokalMusic",
+    "slug": "lokalmusic",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
