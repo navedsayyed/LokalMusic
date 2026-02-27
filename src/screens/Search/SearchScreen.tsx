@@ -370,7 +370,7 @@ export const SearchScreen = () => {
 const styles = StyleSheet.create({
   safe: { flex: 1 },
   titleRow: { paddingHorizontal: 16, paddingTop: 12, paddingBottom: 8 },
-  pageTitle: { fontSize: 28, fontWeight: '700' },
+  pageTitle: { fontSize: 25, fontWeight: '700' },
   searchBar: {
     flexDirection: 'row', alignItems: 'center', gap: 8,
     marginHorizontal: 16, borderRadius: 14,

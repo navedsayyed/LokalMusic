@@ -483,7 +483,7 @@ export const PlaylistScreen = () => {
           ]}
           onPress={() => setCreateModalVisible(true)}
         >
-          <Ionicons name="add" size={22} color={palette.text} />
+          <Ionicons name="add" size={25} color={palette.text} />
         </TouchableOpacity>
       </View>
 
@@ -778,7 +778,7 @@ const styles = StyleSheet.create({
     paddingBottom: 12,
     gap: 12,
   },
-  title: { flex: 1, fontSize: 22, fontWeight: "700" },
+  title: { flex: 1, fontSize: 24, fontWeight: "700" },
   headerBtn: {
     width: 36,
     height: 36,
