@@ -1,4 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useNavigation } from '@react-navigation/native';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
@@ -51,6 +52,39 @@ export const SearchScreen = () => {
   const [sortBy, setSortBy] = useState<SortOption>('Ascending');
   const { playFromSearch } = usePlayer();
 
+  // ─── Search history ──────────────────────────────────────────────────────
+  const [history, setHistory] = useState<string[]>([]);
+  const [inputFocused, setInputFocused] = useState(false);
+
+  useEffect(() => {
+    AsyncStorage.getItem('search_history').then((v) => {
+      if (v) setHistory(JSON.parse(v));
+    });
+  }, []);
+
+  const pushHistory = (term: string) => {
+    const t = term.trim();
+    if (!t) return;
+    setHistory((prev) => {
+      const updated = [t, ...prev.filter((x) => x !== t)].slice(0, 10);
+      AsyncStorage.setItem('search_history', JSON.stringify(updated));
+      return updated;
+    });
+  };
+
+  const removeHistory = (term: string) => {
+    setHistory((prev) => {
+      const updated = prev.filter((x) => x !== term);
+      AsyncStorage.setItem('search_history', JSON.stringify(updated));
+      return updated;
+    });
+  };
+
+  const clearHistory = () => {
+    setHistory([]);
+    AsyncStorage.removeItem('search_history');
+  };
+
   // ─── Sheet / Queue state ────────────────────────────────────────────────────
   const [optionsSong, setOptionsSong] = useState<Song | null>(null);
   const [queueVisible, setQueueVisible] = useState(false);
@@ -102,6 +136,7 @@ export const SearchScreen = () => {
         ]);
         setResults(songs);
         setArtistResults(artists);
+        pushHistory(debouncedQuery.trim()); // ← save to history on each result
       } catch (e) {
         console.warn('Search error', e);
       } finally {
@@ -145,6 +180,8 @@ export const SearchScreen = () => {
               onChangeText={setQuery}
               style={[styles.input, { color: palette.text }]}
               returnKeyType="search"
+              onFocus={() => setInputFocused(true)}
+              onBlur={() => setInputFocused(false)}
             />
             {query.length > 0 && (
               <TouchableOpacity onPress={() => setQuery('')}>
@@ -153,47 +190,38 @@ export const SearchScreen = () => {
             )}
           </View>
 
-          {loading && <ActivityIndicator style={{ marginTop: 32 }} color={palette.primary} />}
-
-          {/* Browse categories (shown when idle) */}
-          {!loading && !hasResults && query.length === 0 && (
-            <View style={{ paddingHorizontal: 4, paddingTop: 8 }}>
-              <Text style={[{ fontSize: 16, fontWeight: '700', marginBottom: 12, marginLeft: 4 }, { color: palette.text }]}>
-                Browse categories
-              </Text>
-              {[
-                ['English', '#1DB954'],
-                ['Hindi', '#E91E8C'],
-                ['Pop', '#FF6B35'],
-                ['Rock', '#8B5CF6'],
-                ['Punjabi', '#F59E0B'],
-                ['Lo-Fi', '#06B6D4'],
-                ['R&B', '#EF4444'],
-                ['Rap', '#374151'],
-              ].reduce<string[][]>((rows, item, i) => {
-                if (i % 2 === 0) rows.push([item[0], item[1]]);
-                else { rows[rows.length - 1].push(item[0], item[1]); }
-                return rows;
-              }, []).map((row, ri) => (
-                <View key={ri} style={{ flexDirection: 'row', gap: 8, marginBottom: 8 }}>
+          {/* ── Search History (shown when input is focused + empty) ── */}
+          {inputFocused && query.length === 0 && history.length > 0 && (
+            <View style={[styles.historyCard, { backgroundColor: palette.backgroundSecondary, borderColor: palette.border }]}>
+              <View style={styles.historyHeader}>
+                <Text style={[styles.historyTitle, { color: palette.text }]}>Recent Searches</Text>
+                <TouchableOpacity onPress={clearHistory}>
+                  <Text style={[styles.historyClear, { color: palette.primary }]}>Clear all</Text>
+                </TouchableOpacity>
+              </View>
+              {history.map((item) => (
+                <TouchableOpacity
+                  key={item}
+                  style={[styles.historyRow, { borderBottomColor: palette.border }]}
+                  activeOpacity={0.7}
+                  onPress={() => setQuery(item)}
+                >
+                  <Ionicons name="time-outline" size={16} color={palette.textSecondary} style={{ marginRight: 10 }} />
+                  <Text style={[styles.historyItem, { color: palette.text }]} numberOfLines={1}>{item}</Text>
                   <TouchableOpacity
-                    style={{ flex: 1, height: 56, borderRadius: 8, backgroundColor: row[1], justifyContent: 'flex-end', padding: 10, overflow: 'hidden' }}
-                    onPress={() => setQuery(row[0])}
+                    hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                    onPress={() => removeHistory(item)}
                   >
-                    <Text style={{ color: '#fff', fontWeight: '700', fontSize: 14 }}>{row[0]}</Text>
+                    <Ionicons name="close" size={16} color={palette.textSecondary} />
                   </TouchableOpacity>
-                  {row[2] && (
-                    <TouchableOpacity
-                      style={{ flex: 1, height: 56, borderRadius: 8, backgroundColor: row[3], justifyContent: 'flex-end', padding: 10, overflow: 'hidden' }}
-                      onPress={() => setQuery(row[2])}
-                    >
-                      <Text style={{ color: '#fff', fontWeight: '700', fontSize: 14 }}>{row[2]}</Text>
-                    </TouchableOpacity>
-                  )}
-                </View>
+                </TouchableOpacity>
               ))}
             </View>
           )}
+
+          {loading && <ActivityIndicator style={{ marginTop: 32 }} color={palette.primary} />}
+
+
 
           {/* Empty state */}
           {!loading && !hasResults && query.length > 0 && (
@@ -460,4 +488,22 @@ const styles = StyleSheet.create({
   toastText: { flex: 1, fontSize: 13, fontWeight: '500' },
   toastBtn: { paddingHorizontal: 4 },
   toastBtnText: { fontSize: 13, fontWeight: '700' },
+
+  // Search history
+  historyCard: {
+    marginHorizontal: 16, marginTop: 6,
+    borderRadius: 16, borderWidth: 1, overflow: 'hidden',
+  },
+  historyHeader: {
+    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
+    paddingHorizontal: 16, paddingVertical: 12,
+  },
+  historyTitle: { fontSize: 14, fontWeight: '700' },
+  historyClear: { fontSize: 13, fontWeight: '500' },
+  historyRow: {
+    flexDirection: 'row', alignItems: 'center',
+    paddingHorizontal: 16, paddingVertical: 13,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+  },
+  historyItem: { flex: 1, fontSize: 14 },
 });
