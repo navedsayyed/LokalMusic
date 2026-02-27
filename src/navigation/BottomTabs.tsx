@@ -1,20 +1,24 @@
-import { Ionicons } from '@expo/vector-icons';
-import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
-import React from 'react';
-import { Text } from 'react-native';
+import { Ionicons } from "@expo/vector-icons";
+import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
+import React from "react";
+import { Text } from "react-native";
 
-import { HomeScreen } from '@/screens/Home/HomeScreen';
-import { PlaylistScreen } from '@/screens/Playlist/PlaylistScreen';
-import { ProfileScreen } from '@/screens/Profile/ProfileScreen';
-import { SearchScreen } from '@/screens/Search/SearchScreen';
-import { useThemeStore } from '@/store/theme.store';
-import { colors } from '@/theme/colors';
+import { ArtistScreen } from "@/screens/Artist/ArtistScreen";
+import { HomeScreen } from "@/screens/Home/HomeScreen";
+import { PlaylistScreen } from "@/screens/Playlist/PlaylistScreen";
+import { ProfileScreen } from "@/screens/Profile/ProfileScreen";
+import { SearchScreen } from "@/screens/Search/SearchScreen";
+import { useThemeStore } from "@/store/theme.store";
+import { colors } from "@/theme/colors";
 
 export type BottomTabParamList = {
   Home: undefined;
   Search: undefined;
   Playlists: undefined;
   Settings: undefined;
+  Artist:
+    | { artistId?: string; artistName: string; artistImageUrl?: string }
+    | undefined;
 };
 
 const Tab = createBottomTabNavigator<BottomTabParamList>();
@@ -26,16 +30,25 @@ type TabIcon = {
 };
 
 const TAB_CONFIG: Record<string, TabIcon> = {
-  Home: { name: 'home-outline', activeIcon: 'home', label: 'Home' },
-  Search: { name: 'search-outline', activeIcon: 'search', label: 'Search' },
-  Playlists: { name: 'musical-notes-outline', activeIcon: 'musical-notes', label: 'Playlists' },
-  Settings: { name: 'settings-outline', activeIcon: 'settings', label: 'Settings' },
+  Home: { name: "home-outline", activeIcon: "home", label: "Home" },
+  Search: { name: "search-outline", activeIcon: "search", label: "Search" },
+  Playlists: {
+    name: "musical-notes-outline",
+    activeIcon: "musical-notes",
+    label: "Playlists",
+  },
+  Settings: {
+    name: "settings-outline",
+    activeIcon: "settings",
+    label: "Settings",
+  },
+  // Hide Artist tab from tab bar, but allow navigation
+  Artist: { name: "person-outline", activeIcon: "person", label: "Artist" },
 };
 
 export const BottomTabs = () => {
   const colorScheme = useThemeStore((state) => state.colorScheme);
   const palette = colors[colorScheme];
-
   return (
     <Tab.Navigator
       screenOptions={({ route }) => ({
@@ -51,14 +64,15 @@ export const BottomTabs = () => {
           paddingTop: 6,
         },
         tabBarHideOnKeyboard: true,
-        tabBarLabel: ({ color }) => (
-          <Text style={{ color, fontSize: 10, fontWeight: '500' }}>
-            {TAB_CONFIG[route.name]?.label ?? route.name}
-          </Text>
-        ),
+        tabBarLabel: ({ color }) =>
+          route.name === "Artist" ? null : (
+            <Text style={{ color, fontSize: 10, fontWeight: "500" }}>
+              {TAB_CONFIG[route.name]?.label ?? route.name}
+            </Text>
+          ),
         tabBarIcon: ({ color, focused }) => {
+          if (route.name === "Artist") return null;
           const cfg = TAB_CONFIG[route.name];
-          if (!cfg) return null;
           return (
             <Ionicons
               name={focused ? cfg.activeIcon : cfg.name}
@@ -71,8 +85,13 @@ export const BottomTabs = () => {
     >
       <Tab.Screen name="Home" component={HomeScreen} />
       <Tab.Screen name="Search" component={SearchScreen} />
-      <Tab.Screen name="Playlists" component={PlaylistScreen} options={{ title: 'Playlists' }} />
-      <Tab.Screen name="Settings" component={ProfileScreen} options={{ title: 'Settings' }} />
+      <Tab.Screen name="Playlists" component={PlaylistScreen} />
+      <Tab.Screen name="Settings" component={ProfileScreen} />
+      <Tab.Screen
+        name="Artist"
+        component={ArtistScreen}
+        options={{ tabBarButton: () => null }}
+      />
     </Tab.Navigator>
   );
 };

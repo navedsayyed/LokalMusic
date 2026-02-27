@@ -2,26 +2,26 @@ import { Ionicons } from "@expo/vector-icons";
 import { useNavigation } from "@react-navigation/native";
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
-  ActivityIndicator,
-  FlatList,
-  Image,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  TouchableWithoutFeedback,
-  View,
+    ActivityIndicator,
+    FlatList,
+    Image,
+    ScrollView,
+    StyleSheet,
+    Text,
+    TouchableOpacity,
+    TouchableWithoutFeedback,
+    View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { SongOptionsSheet } from "@/components/music/SongOptionsSheet";
 import { usePlayer } from "@/hooks/usePlayer";
 import {
-  AlbumItem,
-  ArtistItem,
-  getPopularArtists,
-  getTrendingSongs,
-  searchAlbums,
+    AlbumItem,
+    ArtistItem,
+    getPopularArtists,
+    getTrendingSongs,
+    searchAlbums,
 } from "@/services/api/music.api";
 import { useThemeStore } from "@/store/theme.store";
 import { colors } from "@/theme/colors";
@@ -191,7 +191,7 @@ export const HomeScreen = () => {
         setSuggestedSongs(s);
         setSuggestedArtists(a);
       })
-      .catch(() => { })
+      .catch(() => {})
       .finally(() => setSuggestedLoading(false));
   }, []);
 
@@ -200,21 +200,21 @@ export const HomeScreen = () => {
       setLoading(true);
       getTrendingSongs("top songs 2024", 30)
         .then(setSongs)
-        .catch(() => { })
+        .catch(() => {})
         .finally(() => setLoading(false));
     }
     if (activeTab === "Artists" && artists.length === 0) {
       setLoading(true);
       getPopularArtists()
         .then(setArtists)
-        .catch(() => { })
+        .catch(() => {})
         .finally(() => setLoading(false));
     }
     if (activeTab === "Albums" && albums.length === 0) {
       setLoading(true);
       searchAlbums("best albums 2024", 15)
         .then(setAlbums)
-        .catch(() => { })
+        .catch(() => {})
         .finally(() => setLoading(false));
     }
   }, [activeTab]);
@@ -327,11 +327,16 @@ export const HomeScreen = () => {
                 <Text style={[styles.sectionTitle, { color: palette.text }]}>
                   Popular Artists
                 </Text>
-                <TouchableOpacity>
-                  <Text style={[styles.seeAll, { color: palette.primary }]}>
-                    See All
-                  </Text>
-                </TouchableOpacity>
+                <TouchableOpacity
+                  style={styles.artistCard}
+                  onPress={() =>
+                    navigation.navigate("Artist", {
+                      artistId: item.id,
+                      artistName: item.name,
+                      artistImageUrl: item.imageUrl,
+                    })
+                  }
+                ></TouchableOpacity>
               </View>
               <FlatList
                 data={suggestedArtists}
@@ -346,6 +351,7 @@ export const HomeScreen = () => {
                       navigation.navigate("Artist", {
                         artistId: item.id,
                         artistName: item.name,
+                        artistImageUrl: item.imageUrl,
                       })
                     }
                   >
@@ -391,11 +397,19 @@ export const HomeScreen = () => {
                 <Text style={[styles.sectionTitle, { color: palette.text }]}>
                   Trending Now
                 </Text>
-                <TouchableOpacity>
-                  <Text style={[styles.seeAll, { color: palette.primary }]}>
-                    See All
-                  </Text>
-                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[
+                    styles.gridCard,
+                    { backgroundColor: palette.backgroundSecondary },
+                  ]}
+                  onPress={() =>
+                    navigation.navigate("Artist", {
+                      artistId: item.id,
+                      artistName: item.name,
+                      artistImageUrl: item.imageUrl,
+                    })
+                  }
+                ></TouchableOpacity>
               </View>
               <FlatList
                 data={suggestedSongs.slice(6)}
@@ -702,7 +716,9 @@ export const HomeScreen = () => {
                 size={22}
                 color={palette.primary}
               />
-              <Text style={[styles.logo, { color: palette.text }]}>LokalMusic</Text>
+              <Text style={[styles.logo, { color: palette.text }]}>
+                LokalMusic
+              </Text>
             </View>
             {/* <TouchableOpacity
               onPress={() => navigation.navigate("Search")}
