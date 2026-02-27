@@ -1,18 +1,19 @@
 import { Ionicons } from '@expo/vector-icons';
-import React, { useCallback, useRef, useState } from 'react';
+import React from 'react';
 import {
-    Alert,
-    Animated,
     Image,
     Modal,
-    PanResponder,
-    ScrollView,
     StyleSheet,
     Text,
     TouchableOpacity,
     TouchableWithoutFeedback,
     View,
 } from 'react-native';
+import DraggableFlatList, {
+    RenderItemParams,
+    ScaleDecorator,
+} from 'react-native-draggable-flatlist';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { loadAndPlayCurrent } from '@/services/player/audio.service';
@@ -21,19 +22,9 @@ import { useThemeStore } from '@/store/theme.store';
 import { colors } from '@/theme/colors';
 import { Song } from '@/types/music.types';
 
-const ITEM_HEIGHT = 68;
-
 type Props = {
     visible: boolean;
     onClose: () => void;
-};
-
-type DragState = {
-    active: boolean;
-    fromIndex: number; // index within upNext array
-    currentY: number;
-    startY: number;
-    toIndex: number;
 };
 
 export const QueueSheet = ({ visible, onClose }: Props) => {
@@ -44,113 +35,31 @@ export const QueueSheet = ({ visible, onClose }: Props) => {
     const { queue, currentIndex, shuffle, toggleShuffle, repeatMode, cycleRepeat, reorderQueue, removeFromQueue } =
         usePlayerStore();
 
-    // "Up Next" = everything after current index
-    const upNext = queue.slice(currentIndex + 1);
     const nowPlaying = queue[currentIndex];
-
-    // ─── Drag state ────────────────────────────────────────────────────────────
-    const [drag, setDrag] = useState<DragState>({
-        active: false,
-        fromIndex: -1,
-        currentY: 0,
-        startY: 0,
-        toIndex: -1,
-    });
-    const dragAnim = useRef(new Animated.Value(0)).current;
-    const scrollRef = useRef<ScrollView>(null);
-
-    const calcToIndex = (fromIndex: number, dy: number): number => {
-        const raw = fromIndex + Math.round(dy / ITEM_HEIGHT);
-        return Math.max(0, Math.min(upNext.length - 1, raw));
-    };
-
-    const createDragResponder = useCallback(
-        (itemIndex: number) =>
-            PanResponder.create({
-                onStartShouldSetPanResponder: () => true,
-                onPanResponderGrant: () => {
-                    setDrag({ active: true, fromIndex: itemIndex, currentY: 0, startY: 0, toIndex: itemIndex });
-                    dragAnim.setValue(0);
-                    // Disable scroll while dragging
-                    scrollRef.current?.setNativeProps({ scrollEnabled: false });
-                },
-                onPanResponderMove: (_, gs) => {
-                    dragAnim.setValue(gs.dy);
-                    setDrag((prev) => ({
-                        ...prev,
-                        currentY: gs.dy,
-                        toIndex: calcToIndex(itemIndex, gs.dy),
-                    }));
-                },
-                onPanResponderRelease: (_, gs) => {
-                    const to = calcToIndex(itemIndex, gs.dy);
-                    scrollRef.current?.setNativeProps({ scrollEnabled: true });
-                    if (to !== itemIndex) {
-                        // Absolute indices in the full queue
-                        reorderQueue(currentIndex + 1 + itemIndex, currentIndex + 1 + to);
-                    }
-                    dragAnim.setValue(0);
-                    setDrag({ active: false, fromIndex: -1, currentY: 0, startY: 0, toIndex: -1 });
-                },
-                onPanResponderTerminate: () => {
-                    scrollRef.current?.setNativeProps({ scrollEnabled: true });
-                    dragAnim.setValue(0);
-                    setDrag({ active: false, fromIndex: -1, currentY: 0, startY: 0, toIndex: -1 });
-                },
-            }),
-        [currentIndex, upNext.length, reorderQueue, dragAnim],
-    );
+    // upNext = everything after current
+    const upNext: Song[] = queue.slice(currentIndex + 1);
 
     const handleJumpTo = async (absoluteIndex: number) => {
         usePlayerStore.getState().setQueueAndPlay(queue, absoluteIndex);
         await loadAndPlayCurrent();
     };
 
-    const handleRemove = (absoluteIndex: number) => {
-        Alert.alert('Remove from Queue', 'Remove this song from the queue?', [
-            { text: 'Cancel', style: 'cancel' },
-            { text: 'Remove', style: 'destructive', onPress: () => removeFromQueue(absoluteIndex) },
-        ]);
-    };
-
-    // ─── Render helpers ────────────────────────────────────────────────────────
-    const renderUpNextItem = (item: Song, index: number) => {
+    const renderItem = ({ item, drag, isActive, getIndex }: RenderItemParams<Song>) => {
+        const index = getIndex() ?? 0;
         const absoluteIndex = currentIndex + 1 + index;
-        const isDragging = drag.active && drag.fromIndex === index;
-        const responder = createDragResponder(index);
-
-        // Visual slot displacement: items between fromIndex and toIndex shift
-        let translateY = 0;
-        if (drag.active && drag.fromIndex !== -1 && !isDragging) {
-            const { fromIndex, toIndex } = drag;
-            if (fromIndex < toIndex) {
-                if (index > fromIndex && index <= toIndex) translateY = -ITEM_HEIGHT;
-            } else if (fromIndex > toIndex) {
-                if (index >= toIndex && index < fromIndex) translateY = ITEM_HEIGHT;
-            }
-        }
 
         return (
-            <View key={`${item.id}_${index}`} style={{ height: ITEM_HEIGHT }}>
-                {/* Placeholder behind dragging item */}
-                {isDragging && (
-                    <View style={[styles.dragPlaceholder, { borderColor: palette.primary + '44' }]} />
-                )}
-                <Animated.View
+            <ScaleDecorator>
+                <View
                     style={[
                         styles.row,
-                        {
-                            transform: [
-                                { translateY: isDragging ? dragAnim : translateY },
-                            ],
-                            zIndex: isDragging ? 100 : 1,
-                            opacity: isDragging ? 0.95 : 1,
-                            backgroundColor: isDragging ? palette.backgroundSecondary : 'transparent',
-                            borderRadius: isDragging ? 12 : 0,
-                            elevation: isDragging ? 8 : 0,
-                            shadowColor: isDragging ? '#000' : 'transparent',
-                            shadowOpacity: isDragging ? 0.25 : 0,
-                            shadowRadius: isDragging ? 8 : 0,
+                        isActive && {
+                            backgroundColor: palette.backgroundSecondary,
+                            borderRadius: 12,
+                            elevation: 8,
+                            shadowColor: '#000',
+                            shadowOpacity: 0.25,
+                            shadowRadius: 8,
                         },
                     ]}
                 >
@@ -177,34 +86,38 @@ export const QueueSheet = ({ visible, onClose }: Props) => {
 
                     {/* Remove button */}
                     <TouchableOpacity
-                        onPress={() => handleRemove(absoluteIndex)}
+                        onPress={() => removeFromQueue(absoluteIndex)}
                         style={styles.removeBtn}
                         hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                     >
                         <Ionicons name="close-circle-outline" size={18} color={palette.textSecondary} />
                     </TouchableOpacity>
 
-                    {/* Drag handle */}
-                    <View
-                        {...responder.panHandlers}
+                    {/* Drag handle — long press activates drag */}
+                    <TouchableOpacity
+                        onLongPress={drag}
+                        delayLongPress={100}
                         style={styles.dragHandle}
                         hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                     >
-                        <Ionicons name="reorder-three-outline" size={22} color={palette.textSecondary} />
-                    </View>
-                </Animated.View>
-            </View>
+                        <Ionicons
+                            name="reorder-three-outline"
+                            size={22}
+                            color={isActive ? palette.primary : palette.textSecondary}
+                        />
+                    </TouchableOpacity>
+                </View>
+            </ScaleDecorator>
         );
     };
 
-    // ─── Render ────────────────────────────────────────────────────────────────
     return (
         <Modal visible={visible} animationType="slide" transparent onRequestClose={onClose}>
             <TouchableWithoutFeedback onPress={onClose}>
                 <View style={styles.overlay} />
             </TouchableWithoutFeedback>
 
-            <View
+            <GestureHandlerRootView
                 style={[
                     styles.sheet,
                     { backgroundColor: palette.background, paddingBottom: insets.bottom + 16 },
@@ -217,7 +130,6 @@ export const QueueSheet = ({ visible, onClose }: Props) => {
                 <View style={styles.header}>
                     <Text style={[styles.headerTitle, { color: palette.text }]}>Queue</Text>
                     <View style={styles.headerRight}>
-                        {/* Shuffle toggle */}
                         <TouchableOpacity onPress={toggleShuffle} style={styles.headerBtn}>
                             <Ionicons
                                 name="shuffle"
@@ -226,7 +138,6 @@ export const QueueSheet = ({ visible, onClose }: Props) => {
                             />
                             {shuffle && <View style={[styles.activeDot, { backgroundColor: palette.primary }]} />}
                         </TouchableOpacity>
-                        {/* Repeat cycle */}
                         <TouchableOpacity onPress={cycleRepeat} style={styles.headerBtn}>
                             <Ionicons
                                 name="repeat"
@@ -243,67 +154,66 @@ export const QueueSheet = ({ visible, onClose }: Props) => {
                     </View>
                 </View>
 
-                <ScrollView
-                    ref={scrollRef}
-                    showsVerticalScrollIndicator={false}
-                    scrollEnabled={!drag.active}
-                    style={{ maxHeight: 480 }}
-                    contentContainerStyle={{ paddingBottom: 8 }}
-                >
-                    {/* Now Playing */}
-                    {nowPlaying && (
-                        <View style={styles.section}>
-                            <Text style={[styles.sectionLabel, { color: palette.textSecondary }]}>
-                                NOW PLAYING
-                            </Text>
-                            <View style={[styles.nowPlayingRow, { backgroundColor: palette.backgroundSecondary }]}>
-                                {nowPlaying.imageUrl ? (
-                                    <Image source={{ uri: nowPlaying.imageUrl }} style={[styles.thumb, { borderRadius: 8 }]} />
-                                ) : (
-                                    <View style={[styles.thumb, styles.thumbPlaceholder, { backgroundColor: palette.background, borderRadius: 8 }]}>
-                                        <Ionicons name="musical-note" size={16} color={palette.primary} />
-                                    </View>
-                                )}
-                                <View style={styles.rowText}>
-                                    <Text style={[styles.songName, { color: palette.primary }]} numberOfLines={1}>
-                                        {nowPlaying.name}
-                                    </Text>
-                                    <Text style={[styles.artistName, { color: palette.textSecondary }]} numberOfLines={1}>
-                                        {nowPlaying.primaryArtists}
-                                    </Text>
-                                </View>
-                                <Ionicons name="musical-notes" size={18} color={palette.primary} />
-                            </View>
-                        </View>
-                    )}
-
-                    {/* Up Next */}
+                {/* Now Playing */}
+                {nowPlaying && (
                     <View style={styles.section}>
-                        <Text style={[styles.sectionLabel, { color: palette.textSecondary }]}>
-                            NEXT IN QUEUE  ({upNext.length})
-                        </Text>
-
-                        {upNext.length === 0 ? (
-                            <View style={styles.empty}>
-                                <Ionicons name="musical-notes-outline" size={36} color={palette.textSecondary} />
-                                <Text style={[styles.emptyText, { color: palette.textSecondary }]}>
-                                    No more songs in queue
+                        <Text style={[styles.sectionLabel, { color: palette.textSecondary }]}>NOW PLAYING</Text>
+                        <View style={[styles.nowPlayingRow, { backgroundColor: palette.backgroundSecondary }]}>
+                            {nowPlaying.imageUrl ? (
+                                <Image source={{ uri: nowPlaying.imageUrl }} style={[styles.thumb, { borderRadius: 8 }]} />
+                            ) : (
+                                <View style={[styles.thumb, styles.thumbPlaceholder, { backgroundColor: palette.background, borderRadius: 8 }]}>
+                                    <Ionicons name="musical-note" size={16} color={palette.primary} />
+                                </View>
+                            )}
+                            <View style={styles.rowText}>
+                                <Text style={[styles.songName, { color: palette.primary }]} numberOfLines={1}>
+                                    {nowPlaying.name}
                                 </Text>
-                                <Text style={[styles.emptyHint, { color: palette.textSecondary }]}>
-                                    Long-press any song → "Add to Queue"
+                                <Text style={[styles.artistName, { color: palette.textSecondary }]} numberOfLines={1}>
+                                    {nowPlaying.primaryArtists}
                                 </Text>
                             </View>
-                        ) : (
-                            <View>
-                                {upNext.map((item, index) => renderUpNextItem(item, index))}
-                            </View>
-                        )}
+                            <Ionicons name="musical-notes" size={18} color={palette.primary} />
+                        </View>
                     </View>
-                </ScrollView>
-            </View>
+                )}
+
+                {/* Up Next */}
+                <Text style={[styles.sectionLabel, { color: palette.textSecondary, paddingHorizontal: 0, marginBottom: 8 }]}>
+                    NEXT IN QUEUE  ({upNext.length})
+                </Text>
+
+                {upNext.length === 0 ? (
+                    <View style={styles.empty}>
+                        <Ionicons name="musical-notes-outline" size={36} color={palette.textSecondary} />
+                        <Text style={[styles.emptyText, { color: palette.textSecondary }]}>No more songs in queue</Text>
+                        <Text style={[styles.emptyHint, { color: palette.textSecondary }]}>
+                            Long-press any song → "Add to Queue"
+                        </Text>
+                    </View>
+                ) : (
+                    <DraggableFlatList
+                        data={upNext}
+                        keyExtractor={(item, i) => `${item.id}_${i}`}
+                        renderItem={renderItem}
+                        onDragEnd={({ from, to }) => {
+                            if (from !== to) {
+                                reorderQueue(currentIndex + 1 + from, currentIndex + 1 + to);
+                            }
+                        }}
+                        style={{ maxHeight: 380 }}
+                        contentContainerStyle={{ paddingBottom: 8 }}
+                        showsVerticalScrollIndicator={false}
+                        activationDistance={5}
+                    />
+                )}
+            </GestureHandlerRootView>
         </Modal>
     );
 };
+
+const ITEM_HEIGHT = 68;
 
 const styles = StyleSheet.create({
     overlay: {
@@ -356,26 +266,13 @@ const styles = StyleSheet.create({
         paddingHorizontal: 4,
         paddingVertical: 8,
     },
-    dragPlaceholder: {
-        position: 'absolute',
-        top: 4,
-        left: 0,
-        right: 0,
-        height: ITEM_HEIGHT - 8,
-        borderRadius: 12,
-        borderWidth: 1.5,
-        borderStyle: 'dashed',
-    },
     thumb: { width: 48, height: 48, borderRadius: 8 },
     thumbPlaceholder: { alignItems: 'center', justifyContent: 'center' },
     rowText: { flex: 1 },
     songName: { fontSize: 14, fontWeight: '600' },
     artistName: { fontSize: 12, marginTop: 2 },
     removeBtn: { padding: 4 },
-    dragHandle: {
-        padding: 4,
-        marginLeft: 2,
-    },
+    dragHandle: { padding: 4, marginLeft: 2 },
     empty: { alignItems: 'center', paddingVertical: 24, gap: 6 },
     emptyText: { fontSize: 14, fontWeight: '600' },
     emptyHint: { fontSize: 12 },

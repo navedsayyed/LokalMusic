@@ -38,6 +38,13 @@ const formatSeconds = (secs: number) => {
   return `${m}:${s.toString().padStart(2, '0')}`;
 };
 
+// History entry: either a text query or a tapped song
+type HistoryEntry =
+  | { type: 'query'; text: string }
+  | { type: 'song'; id: string; name: string; artist: string; imageUrl?: string };
+
+const entryKey = (e: HistoryEntry) => (e.type === 'query' ? e.text : e.id);
+
 export const SearchScreen = () => {
   const colorScheme = useThemeStore((s) => s.colorScheme);
   const palette = colors[colorScheme];
@@ -53,36 +60,35 @@ export const SearchScreen = () => {
   const { playFromSearch } = usePlayer();
 
   // ─── Search history ──────────────────────────────────────────────────────
-  const [history, setHistory] = useState<string[]>([]);
+  const [history, setHistory] = useState<HistoryEntry[]>([]);
   const [inputFocused, setInputFocused] = useState(false);
 
   useEffect(() => {
-    AsyncStorage.getItem('search_history').then((v) => {
+    AsyncStorage.getItem('search_history_v2').then((v) => {
       if (v) setHistory(JSON.parse(v));
     });
   }, []);
 
-  const pushHistory = (term: string) => {
-    const t = term.trim();
-    if (!t) return;
+  const pushHistory = (entry: HistoryEntry) => {
     setHistory((prev) => {
-      const updated = [t, ...prev.filter((x) => x !== t)].slice(0, 10);
-      AsyncStorage.setItem('search_history', JSON.stringify(updated));
+      const filtered = prev.filter((e) => entryKey(e) !== entryKey(entry));
+      const updated = [entry, ...filtered].slice(0, 12);
+      AsyncStorage.setItem('search_history_v2', JSON.stringify(updated));
       return updated;
     });
   };
 
-  const removeHistory = (term: string) => {
+  const removeHistory = (key: string) => {
     setHistory((prev) => {
-      const updated = prev.filter((x) => x !== term);
-      AsyncStorage.setItem('search_history', JSON.stringify(updated));
+      const updated = prev.filter((e) => entryKey(e) !== key);
+      AsyncStorage.setItem('search_history_v2', JSON.stringify(updated));
       return updated;
     });
   };
 
   const clearHistory = () => {
     setHistory([]);
-    AsyncStorage.removeItem('search_history');
+    AsyncStorage.removeItem('search_history_v2');
   };
 
   // ─── Sheet / Queue state ────────────────────────────────────────────────────
@@ -136,7 +142,7 @@ export const SearchScreen = () => {
         ]);
         setResults(songs);
         setArtistResults(artists);
-        pushHistory(debouncedQuery.trim()); // ← save to history on each result
+        // ← Do NOT auto-save here; we only save on explicit user action
       } catch (e) {
         console.warn('Search error', e);
       } finally {
@@ -182,6 +188,10 @@ export const SearchScreen = () => {
               returnKeyType="search"
               onFocus={() => setInputFocused(true)}
               onBlur={() => setInputFocused(false)}
+              onSubmitEditing={() => {
+                const t = query.trim();
+                if (t) pushHistory({ type: 'query', text: t });
+              }}
             />
             {query.length > 0 && (
               <TouchableOpacity onPress={() => setQuery('')}>
@@ -194,23 +204,63 @@ export const SearchScreen = () => {
           {inputFocused && query.length === 0 && history.length > 0 && (
             <View style={[styles.historyCard, { backgroundColor: palette.backgroundSecondary, borderColor: palette.border }]}>
               <View style={styles.historyHeader}>
-                <Text style={[styles.historyTitle, { color: palette.text }]}>Recent Searches</Text>
+                <Text style={[styles.historyTitle, { color: palette.text }]}>Recent</Text>
                 <TouchableOpacity onPress={clearHistory}>
                   <Text style={[styles.historyClear, { color: palette.primary }]}>Clear all</Text>
                 </TouchableOpacity>
               </View>
-              {history.map((item) => (
+              {history.map((entry) => (
                 <TouchableOpacity
-                  key={item}
+                  key={entryKey(entry)}
                   style={[styles.historyRow, { borderBottomColor: palette.border }]}
                   activeOpacity={0.7}
-                  onPress={() => setQuery(item)}
+                  onPress={() => {
+                    if (entry.type === 'query') {
+                      setQuery(entry.text);
+                    } else {
+                      // Re-play the song
+                      const fakeSong: Song = {
+                        id: entry.id,
+                        name: entry.name,
+                        primaryArtists: entry.artist,
+                        imageUrl: entry.imageUrl,
+                        duration: 0,
+                        year: '',
+                        album: { id: '', name: '' },
+                      };
+                      playFromSearch([fakeSong], 0);
+                      navigation.navigate('Player' as never);
+                    }
+                  }}
                 >
-                  <Ionicons name="time-outline" size={16} color={palette.textSecondary} style={{ marginRight: 10 }} />
-                  <Text style={[styles.historyItem, { color: palette.text }]} numberOfLines={1}>{item}</Text>
+                  {/* Left icon: album art for songs, clock for queries */}
+                  {entry.type === 'song' && entry.imageUrl ? (
+                    <Image
+                      source={{ uri: entry.imageUrl }}
+                      style={styles.historyThumb}
+                    />
+                  ) : entry.type === 'song' ? (
+                    <View style={[styles.historyThumb, { backgroundColor: palette.border, alignItems: 'center', justifyContent: 'center' }]}>
+                      <Ionicons name="musical-notes" size={14} color={palette.textSecondary} />
+                    </View>
+                  ) : (
+                    <Ionicons name="time-outline" size={16} color={palette.textSecondary} style={{ marginRight: 10 }} />
+                  )}
+
+                  <View style={{ flex: 1, minWidth: 0 }}>
+                    <Text style={[styles.historyItem, { color: palette.text }]} numberOfLines={1}>
+                      {entry.type === 'query' ? entry.text : entry.name}
+                    </Text>
+                    {entry.type === 'song' && (
+                      <Text style={[{ fontSize: 11, marginTop: 1 }, { color: palette.textSecondary }]} numberOfLines={1}>
+                        {entry.artist}
+                      </Text>
+                    )}
+                  </View>
+
                   <TouchableOpacity
                     hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                    onPress={() => removeHistory(item)}
+                    onPress={(e) => { e.stopPropagation(); removeHistory(entryKey(entry)); }}
                   >
                     <Ionicons name="close" size={16} color={palette.textSecondary} />
                   </TouchableOpacity>
@@ -320,6 +370,14 @@ export const SearchScreen = () => {
                       style={[styles.songRow, { paddingHorizontal: 16 }]}
                       activeOpacity={0.7}
                       onPress={() => {
+                        // Save song to history
+                        pushHistory({
+                          type: 'song',
+                          id: item.id,
+                          name: item.name,
+                          artist: item.primaryArtists || '',
+                          imageUrl: item.imageUrl,
+                        });
                         playFromSearch(sortedSongs, index);
                         navigation.navigate('Player' as never);
                       }}
@@ -506,4 +564,5 @@ const styles = StyleSheet.create({
     borderBottomWidth: StyleSheet.hairlineWidth,
   },
   historyItem: { flex: 1, fontSize: 14 },
+  historyThumb: { width: 38, height: 38, borderRadius: 6, marginRight: 10 },
 });
