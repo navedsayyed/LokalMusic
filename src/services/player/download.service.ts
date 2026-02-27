@@ -8,11 +8,9 @@
 
 import { DownloadedSong, useLibraryStore } from '@/store/library.store';
 import { Song } from '@/types/music.types';
-import * as FileSystem from 'expo-file-system';
+import * as FileSystem from 'expo-file-system/legacy';
 
-// documentDirectory exists at runtime; cast to bypass outdated .d.ts
-const FS = FileSystem as any;
-const DOWNLOADS_DIR = `${FS.documentDirectory ?? ''}downloads/`;
+const DOWNLOADS_DIR = `${FileSystem.documentDirectory ?? ''}downloads/`;
 
 /** Ensure the downloads directory exists */
 const ensureDir = async () => {
