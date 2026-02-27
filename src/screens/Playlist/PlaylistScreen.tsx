@@ -157,9 +157,9 @@ export const PlaylistScreen = () => {
 
       {/* Header */}
       <View style={styles.header}>
-        <View style={[styles.avatar, { backgroundColor: palette.primary }]}>
+        {/* <View style={[styles.avatar, { backgroundColor: palette.primary }]}>
           <Text style={styles.avatarText}>Y</Text>
-        </View>
+        </View> */}
         <Text style={[styles.title, { color: palette.text }]}>Your Library</Text>
         <TouchableOpacity
           style={[styles.headerBtn, { backgroundColor: palette.backgroundSecondary }]}

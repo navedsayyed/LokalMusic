@@ -16,7 +16,13 @@ import { SafeAreaView } from "react-native-safe-area-context";
 
 import { SongOptionsSheet } from "@/components/music/SongOptionsSheet";
 import { usePlayer } from "@/hooks/usePlayer";
-import { AlbumItem, ArtistItem, getPopularArtists, getTrendingSongs, searchAlbums } from "@/services/api/music.api";
+import {
+  AlbumItem,
+  ArtistItem,
+  getPopularArtists,
+  getTrendingSongs,
+  searchAlbums,
+} from "@/services/api/music.api";
 import { useThemeStore } from "@/store/theme.store";
 import { colors } from "@/theme/colors";
 import { Song } from "@/types/music.types";
@@ -32,7 +38,15 @@ const getGreeting = () => {
 
 // ─── Sort helpers ───────────────────────────────────────────────────────────
 
-type SortOption = "Ascending" | "Descending" | "Artist" | "Album" | "Year" | "Date Added" | "Date Modified" | "Composer";
+type SortOption =
+  | "Ascending"
+  | "Descending"
+  | "Artist"
+  | "Album"
+  | "Year"
+  | "Date Added"
+  | "Date Modified"
+  | "Composer";
 
 const SORT_OPTIONS: SortOption[] = [
   "Ascending",
@@ -59,7 +73,7 @@ const TABS: HomeTab[] = ["Suggested", "Songs", "Artists", "Albums"];
 
 // ─── Song row ────────────────────────────────────────────────────────────────
 
-type Palette = typeof colors[keyof typeof colors];
+type Palette = (typeof colors)[keyof typeof colors];
 
 const SongRow = React.memo(
   ({
@@ -75,22 +89,41 @@ const SongRow = React.memo(
     onMore: () => void;
     palette: Palette;
   }) => (
-    <TouchableOpacity style={styles.songRow} activeOpacity={0.7} onPress={onPlay}>
+    <TouchableOpacity
+      style={styles.songRow}
+      activeOpacity={0.7}
+      onPress={onPlay}
+    >
       {/* Album art */}
       {item.imageUrl ? (
         <Image source={{ uri: item.imageUrl }} style={styles.songThumb} />
       ) : (
-        <View style={[styles.songThumb, { backgroundColor: palette.backgroundSecondary }]}>
-          <Ionicons name="musical-notes" size={20} color={palette.textSecondary} />
+        <View
+          style={[
+            styles.songThumb,
+            { backgroundColor: palette.backgroundSecondary },
+          ]}
+        >
+          <Ionicons
+            name="musical-notes"
+            size={20}
+            color={palette.textSecondary}
+          />
         </View>
       )}
 
       {/* Text */}
       <View style={styles.songInfo}>
-        <Text style={[styles.songTitle, { color: palette.text }]} numberOfLines={1}>
+        <Text
+          style={[styles.songTitle, { color: palette.text }]}
+          numberOfLines={1}
+        >
           {item.name}
         </Text>
-        <Text style={[styles.songMeta, { color: palette.textSecondary }]} numberOfLines={1}>
+        <Text
+          style={[styles.songMeta, { color: palette.textSecondary }]}
+          numberOfLines={1}
+        >
           {item.primaryArtists}
           {item.duration ? `  |  ${formatSeconds(item.duration)} mins` : ""}
         </Text>
@@ -102,7 +135,12 @@ const SongRow = React.memo(
         style={[styles.playCircle, { backgroundColor: palette.primary }]}
         hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
       >
-        <Ionicons name="play" size={14} color="#fff" style={{ marginLeft: 2 }} />
+        <Ionicons
+          name="play"
+          size={14}
+          color="#fff"
+          style={{ marginLeft: 2 }}
+        />
       </TouchableOpacity>
 
       {/* 3-dot menu */}
@@ -111,10 +149,14 @@ const SongRow = React.memo(
         style={styles.moreBtn}
         hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
       >
-        <Ionicons name="ellipsis-vertical" size={18} color={palette.textSecondary} />
+        <Ionicons
+          name="ellipsis-vertical"
+          size={18}
+          color={palette.textSecondary}
+        />
       </TouchableOpacity>
     </TouchableOpacity>
-  )
+  ),
 );
 
 // ─── HomeScreen ──────────────────────────────────────────────────────────────
@@ -144,42 +186,57 @@ export const HomeScreen = () => {
   // Fetch Suggested tab data on mount
   useEffect(() => {
     setSuggestedLoading(true);
-    Promise.all([
-      getTrendingSongs("top hits 2024", 12),
-      getPopularArtists(),
-    ]).then(([s, a]) => {
-      setSuggestedSongs(s);
-      setSuggestedArtists(a);
-    }).catch(() => { }).finally(() => setSuggestedLoading(false));
+    Promise.all([getTrendingSongs("top hits 2024", 12), getPopularArtists()])
+      .then(([s, a]) => {
+        setSuggestedSongs(s);
+        setSuggestedArtists(a);
+      })
+      .catch(() => { })
+      .finally(() => setSuggestedLoading(false));
   }, []);
 
   useEffect(() => {
     if (activeTab === "Songs" && songs.length === 0) {
       setLoading(true);
       getTrendingSongs("top songs 2024", 30)
-        .then(setSongs).catch(() => { }).finally(() => setLoading(false));
+        .then(setSongs)
+        .catch(() => { })
+        .finally(() => setLoading(false));
     }
     if (activeTab === "Artists" && artists.length === 0) {
       setLoading(true);
       getPopularArtists()
-        .then(setArtists).catch(() => { }).finally(() => setLoading(false));
+        .then(setArtists)
+        .catch(() => { })
+        .finally(() => setLoading(false));
     }
     if (activeTab === "Albums" && albums.length === 0) {
       setLoading(true);
       searchAlbums("best albums 2024", 15)
-        .then(setAlbums).catch(() => { }).finally(() => setLoading(false));
+        .then(setAlbums)
+        .catch(() => { })
+        .finally(() => setLoading(false));
     }
   }, [activeTab]);
 
   const sortedSongs = useMemo(() => {
     const d = [...songs];
     switch (sortBy) {
-      case "Artist": return d.sort((a, b) => (a.primaryArtists || "").localeCompare(b.primaryArtists || ""));
-      case "Album": return d.sort((a, b) => (a.album?.name || "").localeCompare(b.album?.name || ""));
-      case "Year": return d.sort((a, b) => (b.year || "0").localeCompare(a.year || "0"));
-      case "Descending": return d.reverse();
+      case "Artist":
+        return d.sort((a, b) =>
+          (a.primaryArtists || "").localeCompare(b.primaryArtists || ""),
+        );
+      case "Album":
+        return d.sort((a, b) =>
+          (a.album?.name || "").localeCompare(b.album?.name || ""),
+        );
+      case "Year":
+        return d.sort((a, b) => (b.year || "0").localeCompare(a.year || "0"));
+      case "Descending":
+        return d.reverse();
       case "Ascending":
-      default: return d;
+      default:
+        return d;
     }
   }, [songs, sortBy]);
 
@@ -188,7 +245,7 @@ export const HomeScreen = () => {
       playFromSearch(sortedSongs, index);
       navigation.navigate("Player");
     },
-    [sortedSongs, playFromSearch, navigation]
+    [sortedSongs, playFromSearch, navigation],
   );
 
   const handleMore = useCallback((song: Song) => {
@@ -199,31 +256,64 @@ export const HomeScreen = () => {
   // ── Render ──
 
   const renderSuggestedTab = () => (
-    <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 160 }}>
+    <ScrollView
+      showsVerticalScrollIndicator={false}
+      contentContainerStyle={{ paddingBottom: 160 }}
+    >
       {suggestedLoading ? (
         <ActivityIndicator color={palette.primary} style={{ marginTop: 32 }} />
       ) : (
         <>
           {/* Quick-play 2-column grid (top 6 songs — like Spotify home) */}
-          <Text style={[styles.sectionTitle, { color: palette.text, marginTop: 12, marginBottom: 8 }]}>
+          <Text
+            style={[
+              styles.sectionTitle,
+              { color: palette.text, marginTop: 12, marginBottom: 8 },
+            ]}
+          >
             {getGreeting()} 👋
           </Text>
           <View style={styles.quickGrid}>
             {suggestedSongs.slice(0, 6).map((song, index) => (
               <TouchableOpacity
                 key={song.id}
-                style={[styles.quickCard, { backgroundColor: palette.backgroundSecondary }]}
+                style={[
+                  styles.quickCard,
+                  { backgroundColor: palette.backgroundSecondary },
+                ]}
                 activeOpacity={0.75}
-                onPress={() => { playFromSearch(suggestedSongs, index); navigation.navigate("Player"); }}
+                onPress={() => {
+                  playFromSearch(suggestedSongs, index);
+                  navigation.navigate("Player");
+                }}
               >
                 {song.imageUrl ? (
-                  <Image source={{ uri: song.imageUrl }} style={styles.quickImg} />
+                  <Image
+                    source={{ uri: song.imageUrl }}
+                    style={styles.quickImg}
+                  />
                 ) : (
-                  <View style={[styles.quickImg, { backgroundColor: palette.border, alignItems: 'center', justifyContent: 'center' }]}>
-                    <Ionicons name="musical-notes" size={18} color={palette.textSecondary} />
+                  <View
+                    style={[
+                      styles.quickImg,
+                      {
+                        backgroundColor: palette.border,
+                        alignItems: "center",
+                        justifyContent: "center",
+                      },
+                    ]}
+                  >
+                    <Ionicons
+                      name="musical-notes"
+                      size={18}
+                      color={palette.textSecondary}
+                    />
                   </View>
                 )}
-                <Text style={[styles.quickLabel, { color: palette.text }]} numberOfLines={2}>
+                <Text
+                  style={[styles.quickLabel, { color: palette.text }]}
+                  numberOfLines={2}
+                >
                   {song.name}
                 </Text>
               </TouchableOpacity>
@@ -234,8 +324,14 @@ export const HomeScreen = () => {
           {suggestedArtists.length > 0 && (
             <>
               <View style={styles.sectionHeader}>
-                <Text style={[styles.sectionTitle, { color: palette.text }]}>Popular Artists</Text>
-                <TouchableOpacity><Text style={[styles.seeAll, { color: palette.primary }]}>See All</Text></TouchableOpacity>
+                <Text style={[styles.sectionTitle, { color: palette.text }]}>
+                  Popular Artists
+                </Text>
+                <TouchableOpacity>
+                  <Text style={[styles.seeAll, { color: palette.primary }]}>
+                    See All
+                  </Text>
+                </TouchableOpacity>
               </View>
               <FlatList
                 data={suggestedArtists}
@@ -244,15 +340,44 @@ export const HomeScreen = () => {
                 showsHorizontalScrollIndicator={false}
                 contentContainerStyle={{ paddingVertical: 8, paddingRight: 16 }}
                 renderItem={({ item }) => (
-                  <TouchableOpacity style={styles.artistCard}>
+                  <TouchableOpacity
+                    style={styles.artistCard}
+                    onPress={() =>
+                      navigation.navigate("Artist", {
+                        artistId: item.id,
+                        artistName: item.name,
+                      })
+                    }
+                  >
                     {item.imageUrl ? (
-                      <Image source={{ uri: item.imageUrl }} style={styles.artistImage} />
+                      <Image
+                        source={{ uri: item.imageUrl }}
+                        style={styles.artistImage}
+                      />
                     ) : (
-                      <View style={[styles.artistImage, { backgroundColor: palette.backgroundSecondary, alignItems: 'center', justifyContent: 'center' }]}>
-                        <Ionicons name="person" size={28} color={palette.textSecondary} />
+                      <View
+                        style={[
+                          styles.artistImage,
+                          {
+                            backgroundColor: palette.backgroundSecondary,
+                            alignItems: "center",
+                            justifyContent: "center",
+                          },
+                        ]}
+                      >
+                        <Ionicons
+                          name="person"
+                          size={28}
+                          color={palette.textSecondary}
+                        />
                       </View>
                     )}
-                    <Text style={[styles.artistName, { color: palette.text }]} numberOfLines={1}>{item.name}</Text>
+                    <Text
+                      style={[styles.artistName, { color: palette.text }]}
+                      numberOfLines={1}
+                    >
+                      {item.name}
+                    </Text>
                   </TouchableOpacity>
                 )}
               />
@@ -263,8 +388,14 @@ export const HomeScreen = () => {
           {suggestedSongs.length > 6 && (
             <>
               <View style={styles.sectionHeader}>
-                <Text style={[styles.sectionTitle, { color: palette.text }]}>Trending Now</Text>
-                <TouchableOpacity><Text style={[styles.seeAll, { color: palette.primary }]}>See All</Text></TouchableOpacity>
+                <Text style={[styles.sectionTitle, { color: palette.text }]}>
+                  Trending Now
+                </Text>
+                <TouchableOpacity>
+                  <Text style={[styles.seeAll, { color: palette.primary }]}>
+                    See All
+                  </Text>
+                </TouchableOpacity>
               </View>
               <FlatList
                 data={suggestedSongs.slice(6)}
@@ -275,17 +406,49 @@ export const HomeScreen = () => {
                 renderItem={({ item, index }) => (
                   <TouchableOpacity
                     style={styles.albumCard}
-                    onPress={() => { playFromSearch(suggestedSongs, index + 6); navigation.navigate("Player"); }}
+                    onPress={() => {
+                      playFromSearch(suggestedSongs, index + 6);
+                      navigation.navigate("Player");
+                    }}
                   >
                     {item.imageUrl ? (
-                      <Image source={{ uri: item.imageUrl }} style={styles.albumImage} />
+                      <Image
+                        source={{ uri: item.imageUrl }}
+                        style={styles.albumImage}
+                      />
                     ) : (
-                      <View style={[styles.albumImage, { backgroundColor: palette.backgroundSecondary, alignItems: 'center', justifyContent: 'center' }]}>
-                        <Ionicons name="musical-notes" size={24} color={palette.textSecondary} />
+                      <View
+                        style={[
+                          styles.albumImage,
+                          {
+                            backgroundColor: palette.backgroundSecondary,
+                            alignItems: "center",
+                            justifyContent: "center",
+                          },
+                        ]}
+                      >
+                        <Ionicons
+                          name="musical-notes"
+                          size={24}
+                          color={palette.textSecondary}
+                        />
                       </View>
                     )}
-                    <Text style={[styles.albumTitle, { color: palette.text }]} numberOfLines={2}>{item.name}</Text>
-                    <Text style={[styles.albumArtist, { color: palette.textSecondary }]} numberOfLines={1}>{item.primaryArtists}</Text>
+                    <Text
+                      style={[styles.albumTitle, { color: palette.text }]}
+                      numberOfLines={2}
+                    >
+                      {item.name}
+                    </Text>
+                    <Text
+                      style={[
+                        styles.albumArtist,
+                        { color: palette.textSecondary },
+                      ]}
+                      numberOfLines={1}
+                    >
+                      {item.primaryArtists}
+                    </Text>
                   </TouchableOpacity>
                 )}
               />
@@ -309,24 +472,56 @@ export const HomeScreen = () => {
             style={[styles.sortBtn, { borderColor: palette.border }]}
             onPress={() => setSortMenuVisible((v) => !v)}
           >
-            <Text style={[styles.sortBtnText, { color: palette.primary }]}>{sortBy}</Text>
+            <Text style={[styles.sortBtnText, { color: palette.primary }]}>
+              {sortBy}
+            </Text>
             <Ionicons name="swap-vertical" size={14} color={palette.primary} />
           </TouchableOpacity>
 
           {/* Sort Dropdown */}
           {sortMenuVisible && (
-            <View style={[styles.sortMenu, { backgroundColor: palette.card, borderColor: palette.border }]}>
+            <View
+              style={[
+                styles.sortMenu,
+                { backgroundColor: palette.card, borderColor: palette.border },
+              ]}
+            >
               {SORT_OPTIONS.map((opt) => (
                 <TouchableOpacity
                   key={opt}
                   style={styles.sortMenuItem}
-                  onPress={() => { setSortBy(opt); setSortMenuVisible(false); }}
+                  onPress={() => {
+                    setSortBy(opt);
+                    setSortMenuVisible(false);
+                  }}
                 >
-                  <Text style={[styles.sortMenuText, { color: sortBy === opt ? palette.primary : palette.text }]}>
+                  <Text
+                    style={[
+                      styles.sortMenuText,
+                      {
+                        color: sortBy === opt ? palette.primary : palette.text,
+                      },
+                    ]}
+                  >
                     {opt}
                   </Text>
-                  <View style={[styles.radioOuter, { borderColor: sortBy === opt ? palette.primary : palette.border }]}>
-                    {sortBy === opt && <View style={[styles.radioInner, { backgroundColor: palette.primary }]} />}
+                  <View
+                    style={[
+                      styles.radioOuter,
+                      {
+                        borderColor:
+                          sortBy === opt ? palette.primary : palette.border,
+                      },
+                    ]}
+                  >
+                    {sortBy === opt && (
+                      <View
+                        style={[
+                          styles.radioInner,
+                          { backgroundColor: palette.primary },
+                        ]}
+                      />
+                    )}
                   </View>
                 </TouchableOpacity>
               ))}
@@ -369,15 +564,47 @@ export const HomeScreen = () => {
           contentContainerStyle={{ padding: 8, paddingBottom: 160 }}
           showsVerticalScrollIndicator={false}
           renderItem={({ item }) => (
-            <TouchableOpacity style={[styles.gridCard, { backgroundColor: palette.backgroundSecondary }]}>
+            <TouchableOpacity
+              style={[
+                styles.gridCard,
+                { backgroundColor: palette.backgroundSecondary },
+              ]}
+              onPress={() =>
+                navigation.navigate("Artist", {
+                  artistId: item.id,
+                  artistName: item.name,
+                })
+              }
+            >
               {item.imageUrl ? (
-                <Image source={{ uri: item.imageUrl }} style={styles.gridCircle} />
+                <Image
+                  source={{ uri: item.imageUrl }}
+                  style={styles.gridCircle}
+                />
               ) : (
-                <View style={[styles.gridCircle, { backgroundColor: palette.border, alignItems: 'center', justifyContent: 'center' }]}>
-                  <Ionicons name="person" size={36} color={palette.textSecondary} />
+                <View
+                  style={[
+                    styles.gridCircle,
+                    {
+                      backgroundColor: palette.border,
+                      alignItems: "center",
+                      justifyContent: "center",
+                    },
+                  ]}
+                >
+                  <Ionicons
+                    name="person"
+                    size={36}
+                    color={palette.textSecondary}
+                  />
                 </View>
               )}
-              <Text style={[styles.gridLabel, { color: palette.text }]} numberOfLines={2}>{item.name}</Text>
+              <Text
+                style={[styles.gridLabel, { color: palette.text }]}
+                numberOfLines={2}
+              >
+                {item.name}
+              </Text>
             </TouchableOpacity>
           )}
         />
@@ -397,16 +624,47 @@ export const HomeScreen = () => {
           contentContainerStyle={{ padding: 8, paddingBottom: 160 }}
           showsVerticalScrollIndicator={false}
           renderItem={({ item }) => (
-            <TouchableOpacity style={[styles.gridCard, { backgroundColor: palette.backgroundSecondary }]}>
+            <TouchableOpacity
+              style={[
+                styles.gridCard,
+                { backgroundColor: palette.backgroundSecondary },
+              ]}
+            >
               {item.imageUrl ? (
-                <Image source={{ uri: item.imageUrl }} style={styles.gridSquare} />
+                <Image
+                  source={{ uri: item.imageUrl }}
+                  style={styles.gridSquare}
+                />
               ) : (
-                <View style={[styles.gridSquare, { backgroundColor: palette.border, alignItems: 'center', justifyContent: 'center' }]}>
-                  <Ionicons name="albums" size={36} color={palette.textSecondary} />
+                <View
+                  style={[
+                    styles.gridSquare,
+                    {
+                      backgroundColor: palette.border,
+                      alignItems: "center",
+                      justifyContent: "center",
+                    },
+                  ]}
+                >
+                  <Ionicons
+                    name="albums"
+                    size={36}
+                    color={palette.textSecondary}
+                  />
                 </View>
               )}
-              <Text style={[styles.gridLabel, { color: palette.text }]} numberOfLines={2}>{item.name}</Text>
-              <Text style={[styles.gridSub, { color: palette.textSecondary }]} numberOfLines={1}>{item.artist}</Text>
+              <Text
+                style={[styles.gridLabel, { color: palette.text }]}
+                numberOfLines={2}
+              >
+                {item.name}
+              </Text>
+              <Text
+                style={[styles.gridSub, { color: palette.textSecondary }]}
+                numberOfLines={1}
+              >
+                {item.artist}
+              </Text>
             </TouchableOpacity>
           )}
         />
@@ -422,9 +680,14 @@ export const HomeScreen = () => {
   };
 
   return (
-    <SafeAreaView style={[styles.safe, { backgroundColor: palette.background }]} edges={["top"]}>
+    <SafeAreaView
+      style={[styles.safe, { backgroundColor: palette.background }]}
+      edges={["top"]}
+    >
       <TouchableWithoutFeedback onPress={() => setSortMenuVisible(false)}>
-        <View style={[styles.container, { backgroundColor: palette.background }]}>
+        <View
+          style={[styles.container, { backgroundColor: palette.background }]}
+        >
           {/* Song options bottom sheet – rendered at screen level so it's above FlatList */}
           <SongOptionsSheet
             visible={optionsVisible}
@@ -434,16 +697,23 @@ export const HomeScreen = () => {
           {/* Header */}
           <View style={styles.header}>
             <View style={styles.logoRow}>
-              <Ionicons name="musical-notes" size={22} color={palette.primary} />
-              <Text style={[styles.logo, { color: palette.text }]}>Lokal</Text>
+              <Ionicons
+                name="musical-notes"
+                size={22}
+                color={palette.primary}
+              />
+              <Text style={[styles.logo, { color: palette.text }]}>LokalMusic</Text>
             </View>
-            <TouchableOpacity
+            {/* <TouchableOpacity
               onPress={() => navigation.navigate("Search")}
-              style={[styles.iconBtn, { backgroundColor: palette.backgroundSecondary }]}
+              style={[
+                styles.iconBtn,
+                { backgroundColor: palette.backgroundSecondary },
+              ]}
               accessibilityLabel="Open search"
             >
               <Ionicons name="search" size={18} color={palette.text} />
-            </TouchableOpacity>
+            </TouchableOpacity> */}
           </View>
 
           {/* Tab bar */}
@@ -451,11 +721,29 @@ export const HomeScreen = () => {
             {TABS.map((tab) => {
               const active = activeTab === tab;
               return (
-                <TouchableOpacity key={tab} style={styles.tabBtn} onPress={() => setActiveTab(tab)}>
-                  <Text style={[styles.tabLabel, { color: active ? palette.primary : palette.textSecondary }]}>
+                <TouchableOpacity
+                  key={tab}
+                  style={styles.tabBtn}
+                  onPress={() => setActiveTab(tab)}
+                >
+                  <Text
+                    style={[
+                      styles.tabLabel,
+                      {
+                        color: active ? palette.primary : palette.textSecondary,
+                      },
+                    ]}
+                  >
                     {tab}
                   </Text>
-                  {active && <View style={[styles.tabIndicator, { backgroundColor: palette.primary }]} />}
+                  {active && (
+                    <View
+                      style={[
+                        styles.tabIndicator,
+                        { backgroundColor: palette.primary },
+                      ]}
+                    />
+                  )}
                 </TouchableOpacity>
               );
             })}
@@ -518,7 +806,12 @@ const styles = StyleSheet.create({
   albumArtist: { fontSize: 12, marginTop: 1 },
   artistCard: { alignItems: "center", marginRight: 20 },
   artistImage: { width: 72, height: 72, borderRadius: 36, marginBottom: 6 },
-  artistName: { fontSize: 12, fontWeight: "500", textAlign: "center", maxWidth: 72 },
+  artistName: {
+    fontSize: 12,
+    fontWeight: "500",
+    textAlign: "center",
+    maxWidth: 72,
+  },
   // Songs tab
   songsHeader: {
     flexDirection: "row",
@@ -611,7 +904,12 @@ const styles = StyleSheet.create({
   menuItem: { paddingHorizontal: 20, paddingVertical: 14 },
   menuItemText: { fontSize: 15 },
   // Coming soon
-  comingSoon: { flex: 1, justifyContent: "center", alignItems: "center", gap: 12 },
+  comingSoon: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    gap: 12,
+  },
   comingSoonText: { fontSize: 14 },
   // Grid (Artists / Albums)
   gridCard: {

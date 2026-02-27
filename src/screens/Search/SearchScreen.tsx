@@ -7,6 +7,7 @@ import {
   FlatList,
   Image,
   Keyboard,
+  ScrollView,
   StyleSheet,
   Text,
   TextInput,
@@ -20,7 +21,7 @@ import { QueueSheet } from '@/components/music/QueueSheet';
 import { SongOptionsSheet } from '@/components/music/SongOptionsSheet';
 import { useDebounce } from '@/hooks/useDebounce';
 import { usePlayer } from '@/hooks/usePlayer';
-import { searchSongs } from '@/services/api/music.api';
+import { ArtistItem, searchArtists, searchSongs } from '@/services/api/music.api';
 import { usePlayerStore } from '@/store/player.store';
 import { useThemeStore } from '@/store/theme.store';
 import { colors } from '@/theme/colors';
@@ -39,11 +40,12 @@ const formatSeconds = (secs: number) => {
 export const SearchScreen = () => {
   const colorScheme = useThemeStore((s) => s.colorScheme);
   const palette = colors[colorScheme];
-  const navigation = useNavigation();
+  const navigation = useNavigation<any>();
 
   const [query, setQuery] = useState('');
   const debouncedQuery = useDebounce(query, 400);
   const [results, setResults] = useState<Song[]>([]);
+  const [artistResults, setArtistResults] = useState<ArtistItem[]>([]);
   const [loading, setLoading] = useState(false);
   const [sortOpen, setSortOpen] = useState(false);
   const [sortBy, setSortBy] = useState<SortOption>('Ascending');
@@ -84,14 +86,22 @@ export const SearchScreen = () => {
     showToast(`"${optionsSong.name}" plays next`);
   };
 
-  // ─── Search ─────────────────────────────────────────────────────────────────
+  // ─── Search both songs & artists in parallel ─────────────────────────────
   useEffect(() => {
     const run = async () => {
-      if (!debouncedQuery.trim()) { setResults([]); return; }
+      if (!debouncedQuery.trim()) {
+        setResults([]);
+        setArtistResults([]);
+        return;
+      }
       try {
         setLoading(true);
-        const songs = await searchSongs(debouncedQuery.trim());
+        const [songs, artists] = await Promise.all([
+          searchSongs(debouncedQuery.trim()),
+          searchArtists(debouncedQuery.trim(), 8),
+        ]);
         setResults(songs);
+        setArtistResults(artists);
       } catch (e) {
         console.warn('Search error', e);
       } finally {
@@ -113,6 +123,8 @@ export const SearchScreen = () => {
       default: return data;
     }
   }, [results, sortBy]);
+
+  const hasResults = sortedSongs.length > 0 || artistResults.length > 0;
 
   return (
     <SafeAreaView style={[styles.safe, { backgroundColor: palette.background }]}>
@@ -141,45 +153,10 @@ export const SearchScreen = () => {
             )}
           </View>
 
-          {/* Results count + sort */}
-          {results.length > 0 && (
-            <View style={styles.resultsHeader}>
-              <Text style={[styles.resultCount, { color: palette.textSecondary }]}>
-                {sortedSongs.length} songs
-              </Text>
-              <View>
-                <TouchableOpacity
-                  style={[styles.sortBtn, { borderColor: palette.border }]}
-                  onPress={() => setSortOpen((v) => !v)}
-                >
-                  <Text style={[styles.sortBtnText, { color: palette.primary }]}>{sortBy}</Text>
-                  <Ionicons name="swap-vertical" size={14} color={palette.primary} />
-                </TouchableOpacity>
-
-                {sortOpen && (
-                  <View style={[styles.sortMenu, { backgroundColor: palette.card, borderColor: palette.border }]}>
-                    {SORT_OPTIONS.map((opt) => (
-                      <TouchableOpacity
-                        key={opt}
-                        style={styles.sortItem}
-                        onPress={() => { setSortBy(opt); setSortOpen(false); }}
-                      >
-                        <Text style={{ color: sortBy === opt ? palette.primary : palette.text, fontSize: 14 }}>{opt}</Text>
-                        <View style={[styles.radioOuter, { borderColor: sortBy === opt ? palette.primary : palette.border }]}>
-                          {sortBy === opt && <View style={[styles.radioInner, { backgroundColor: palette.primary }]} />}
-                        </View>
-                      </TouchableOpacity>
-                    ))}
-                  </View>
-                )}
-              </View>
-            </View>
-          )}
-
           {loading && <ActivityIndicator style={{ marginTop: 32 }} color={palette.primary} />}
 
-          {/* Browse categories */}
-          {!loading && results.length === 0 && query.length === 0 && (
+          {/* Browse categories (shown when idle) */}
+          {!loading && !hasResults && query.length === 0 && (
             <View style={{ paddingHorizontal: 4, paddingTop: 8 }}>
               <Text style={[{ fontSize: 16, fontWeight: '700', marginBottom: 12, marginLeft: 4 }, { color: palette.text }]}>
                 Browse categories
@@ -218,65 +195,147 @@ export const SearchScreen = () => {
             </View>
           )}
 
-          {!loading && results.length === 0 && query.length > 0 && (
+          {/* Empty state */}
+          {!loading && !hasResults && query.length > 0 && (
             <View style={styles.emptyState}>
               <Ionicons name="musical-notes-outline" size={56} color={palette.border} />
               <Text style={[styles.emptyText, { color: palette.textSecondary }]}>No results for "{query}"</Text>
             </View>
           )}
 
-          {/* ── Song list ─────────────────────────── */}
-          <FlatList
-            data={sortedSongs}
-            keyExtractor={(item) => item.id}
-            keyboardShouldPersistTaps="handled"
-            contentContainerStyle={{ paddingBottom: 140, paddingHorizontal: 16 }}
-            renderItem={({ item, index }) => (
-              <TouchableOpacity
-                style={styles.songRow}
-                activeOpacity={0.7}
-                onPress={() => {
-                  playFromSearch(sortedSongs, index);
-                  navigation.navigate('Player' as never);
-                }}
-              >
-                {/* Album art */}
-                {item.imageUrl ? (
-                  <Image source={{ uri: item.imageUrl }} style={styles.thumb} />
-                ) : (
-                  <View style={[styles.thumb, { backgroundColor: palette.backgroundSecondary, alignItems: 'center', justifyContent: 'center' }]}>
-                    <Ionicons name="musical-notes" size={20} color={palette.textSecondary} />
-                  </View>
-                )}
-
-                {/* Song info */}
-                <View style={styles.songInfo}>
-                  <Text style={[styles.songTitle, { color: palette.text }]} numberOfLines={1}>{item.name}</Text>
-                  <Text style={[styles.songMeta, { color: palette.textSecondary }]} numberOfLines={1}>
-                    {item.primaryArtists}
-                    {item.duration ? `  |  ${formatSeconds(item.duration)} mins` : ''}
-                  </Text>
+          {/* ── Results list (artists + songs) ─────────────── */}
+          {!loading && hasResults && (
+            <ScrollView
+              keyboardShouldPersistTaps="handled"
+              showsVerticalScrollIndicator={false}
+              contentContainerStyle={{ paddingBottom: 140 }}
+            >
+              {/* ── Artists section ── */}
+              {artistResults.length > 0 && (
+                <View style={styles.section}>
+                  <Text style={[styles.sectionTitle, { color: palette.text }]}>Artists</Text>
+                  <FlatList
+                    data={artistResults}
+                    keyExtractor={(i) => i.id}
+                    horizontal
+                    showsHorizontalScrollIndicator={false}
+                    contentContainerStyle={{ paddingVertical: 8, paddingRight: 16, paddingLeft: 16 }}
+                    keyboardShouldPersistTaps="handled"
+                    renderItem={({ item }) => (
+                      <TouchableOpacity
+                        style={styles.artistCard}
+                        activeOpacity={0.75}
+                        onPress={() =>
+                          navigation.navigate('Artist', {
+                            artistId: item.id,
+                            artistName: item.name,
+                          })
+                        }
+                      >
+                        {item.imageUrl ? (
+                          <Image source={{ uri: item.imageUrl }} style={styles.artistAvatar} />
+                        ) : (
+                          <View style={[styles.artistAvatar, { backgroundColor: palette.backgroundSecondary, alignItems: 'center', justifyContent: 'center' }]}>
+                            <Ionicons name="person" size={30} color={palette.textSecondary} />
+                          </View>
+                        )}
+                        <Text style={[styles.artistName, { color: palette.text }]} numberOfLines={2}>
+                          {item.name}
+                        </Text>
+                        <Text style={[styles.artistLabel, { color: palette.textSecondary }]}>Artist</Text>
+                      </TouchableOpacity>
+                    )}
+                  />
                 </View>
+              )}
 
-                {/* ⋮ three-dot button → opens SongOptionsSheet */}
-                <TouchableOpacity
-                  onPress={(e) => {
-                    e.stopPropagation();
-                    setSortOpen(false);
-                    setOptionsSong(item);
-                  }}
-                  style={styles.dotBtn}
-                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                >
-                  <Ionicons name="ellipsis-vertical" size={18} color={palette.textSecondary} />
-                </TouchableOpacity>
-              </TouchableOpacity>
-            )}
-          />
+              {/* ── Songs section header + sort ── */}
+              {sortedSongs.length > 0 && (
+                <>
+                  <View style={styles.songsHeader}>
+                    <Text style={[styles.sectionTitle, { color: palette.text }]}>
+                      Songs
+                      <Text style={[styles.songCount, { color: palette.textSecondary }]}> · {sortedSongs.length}</Text>
+                    </Text>
+                    <View>
+                      <TouchableOpacity
+                        style={[styles.sortBtn, { borderColor: palette.border }]}
+                        onPress={() => setSortOpen((v) => !v)}
+                      >
+                        <Text style={[styles.sortBtnText, { color: palette.primary }]}>{sortBy}</Text>
+                        <Ionicons name="swap-vertical" size={14} color={palette.primary} />
+                      </TouchableOpacity>
+
+                      {sortOpen && (
+                        <View style={[styles.sortMenu, { backgroundColor: palette.card, borderColor: palette.border }]}>
+                          {SORT_OPTIONS.map((opt) => (
+                            <TouchableOpacity
+                              key={opt}
+                              style={styles.sortItem}
+                              onPress={() => { setSortBy(opt); setSortOpen(false); }}
+                            >
+                              <Text style={{ color: sortBy === opt ? palette.primary : palette.text, fontSize: 14 }}>{opt}</Text>
+                              <View style={[styles.radioOuter, { borderColor: sortBy === opt ? palette.primary : palette.border }]}>
+                                {sortBy === opt && <View style={[styles.radioInner, { backgroundColor: palette.primary }]} />}
+                              </View>
+                            </TouchableOpacity>
+                          ))}
+                        </View>
+                      )}
+                    </View>
+                  </View>
+
+                  {/* Song rows */}
+                  {sortedSongs.map((item, index) => (
+                    <TouchableOpacity
+                      key={item.id}
+                      style={[styles.songRow, { paddingHorizontal: 16 }]}
+                      activeOpacity={0.7}
+                      onPress={() => {
+                        playFromSearch(sortedSongs, index);
+                        navigation.navigate('Player' as never);
+                      }}
+                    >
+                      {/* Album art */}
+                      {item.imageUrl ? (
+                        <Image source={{ uri: item.imageUrl }} style={styles.thumb} />
+                      ) : (
+                        <View style={[styles.thumb, { backgroundColor: palette.backgroundSecondary, alignItems: 'center', justifyContent: 'center' }]}>
+                          <Ionicons name="musical-notes" size={20} color={palette.textSecondary} />
+                        </View>
+                      )}
+
+                      {/* Song info */}
+                      <View style={styles.songInfo}>
+                        <Text style={[styles.songTitle, { color: palette.text }]} numberOfLines={1}>{item.name}</Text>
+                        <Text style={[styles.songMeta, { color: palette.textSecondary }]} numberOfLines={1}>
+                          {item.primaryArtists}
+                          {item.duration ? `  |  ${formatSeconds(item.duration)} mins` : ''}
+                        </Text>
+                      </View>
+
+                      {/* ⋮ three-dot button */}
+                      <TouchableOpacity
+                        onPress={(e) => {
+                          e.stopPropagation();
+                          setSortOpen(false);
+                          setOptionsSong(item);
+                        }}
+                        style={styles.dotBtn}
+                        hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                      >
+                        <Ionicons name="ellipsis-vertical" size={18} color={palette.textSecondary} />
+                      </TouchableOpacity>
+                    </TouchableOpacity>
+                  ))}
+                </>
+              )}
+            </ScrollView>
+          )}
         </View>
       </TouchableWithoutFeedback>
 
-      {/* ── Toast notification ───────────────────────────────────────────────── */}
+      {/* ── Toast notification ─────────────────────────────────────────────────── */}
       <Animated.View
         style={[
           styles.toast,
@@ -319,11 +378,47 @@ const styles = StyleSheet.create({
     borderWidth: 1, marginBottom: 4,
   },
   input: { flex: 1, fontSize: 15, margin: 0, padding: 0 },
-  resultsHeader: {
-    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
-    paddingHorizontal: 16, paddingVertical: 8, zIndex: 20,
+
+  // Section
+  section: { marginBottom: 4 },
+  sectionTitle: { fontSize: 18, fontWeight: '700', paddingHorizontal: 16, paddingTop: 12, paddingBottom: 2 },
+
+  // Artist cards
+  artistCard: {
+    width: 88,
+    alignItems: 'center',
+    marginRight: 12,
   },
-  resultCount: { fontSize: 13 },
+  artistAvatar: {
+    width: 76,
+    height: 76,
+    borderRadius: 38,
+    backgroundColor: '#1a2340',
+    marginBottom: 6,
+  },
+  artistName: {
+    fontSize: 12,
+    fontWeight: '600',
+    textAlign: 'center',
+    lineHeight: 16,
+  },
+  artistLabel: {
+    fontSize: 11,
+    marginTop: 2,
+    textAlign: 'center',
+  },
+
+  // Songs header
+  songsHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingTop: 8,
+    paddingBottom: 4,
+    zIndex: 20,
+  },
+  songCount: { fontSize: 16, fontWeight: '400' },
   sortBtn: {
     flexDirection: 'row', alignItems: 'center', gap: 4,
     paddingHorizontal: 10, paddingVertical: 5,
@@ -342,17 +437,16 @@ const styles = StyleSheet.create({
   },
   radioOuter: { width: 18, height: 18, borderRadius: 9, borderWidth: 2, alignItems: 'center', justifyContent: 'center' },
   radioInner: { width: 9, height: 9, borderRadius: 5 },
-  emptyState: { flex: 1, justifyContent: 'center', alignItems: 'center', gap: 12, paddingBottom: 80 },
+
+  emptyState: { flex: 1, justifyContent: 'center', alignItems: 'center', gap: 12, paddingBottom: 80, paddingTop: 60 },
   emptyText: { fontSize: 14 },
   songRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 8, gap: 12 },
   thumb: { width: 56, height: 56, borderRadius: 10 },
   songInfo: { flex: 1, minWidth: 0 },
   songTitle: { fontSize: 14, fontWeight: '600', marginBottom: 3 },
   songMeta: { fontSize: 12 },
-  dotBtn: {
-    width: 36, height: 36,
-    alignItems: 'center', justifyContent: 'center',
-  },
+  dotBtn: { width: 36, height: 36, alignItems: 'center', justifyContent: 'center' },
+
   // Toast
   toast: {
     position: 'absolute', bottom: 100, left: 16, right: 16,
