@@ -2,6 +2,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { useNavigation } from "@react-navigation/native";
 import React, { useEffect, useRef, useState } from "react";
 import {
+  ActivityIndicator,
   Alert,
   Animated,
   Dimensions,
@@ -17,6 +18,7 @@ import {
   View,
 } from "react-native";
 
+import { ArtistItem, searchArtists } from "@/services/api/music.api";
 import {
   deleteSongDownload,
   downloadSong,
@@ -169,6 +171,49 @@ export const SongOptionsSheet: React.FC<Props> = ({
       }),
     ]).start(() => {
       setPickerVisible(false);
+      cb?.();
+    });
+  };
+
+  // ── Artist picker sheet ─────────────────────────────────────────
+  const [artistPickerVisible, setArtistPickerVisible] = useState(false);
+  const [artistData, setArtistData] = useState<ArtistItem[]>([]);
+  const [loadingArtists, setLoadingArtists] = useState(false);
+  const artistPickerAnim = useRef(new Animated.Value(300)).current;
+  const artistPickerBackdrop = useRef(new Animated.Value(0)).current;
+
+  const openArtistPicker = () => {
+    setArtistPickerVisible(true);
+    Animated.parallel([
+      Animated.spring(artistPickerAnim, {
+        toValue: 0,
+        useNativeDriver: true,
+        tension: 80,
+        friction: 12,
+      }),
+      Animated.timing(artistPickerBackdrop, {
+        toValue: 1,
+        duration: 220,
+        useNativeDriver: true,
+      }),
+    ]).start();
+  };
+
+  const closeArtistPicker = (cb?: () => void) => {
+    Animated.parallel([
+      Animated.spring(artistPickerAnim, {
+        toValue: 300,
+        useNativeDriver: true,
+        tension: 80,
+        friction: 12,
+      }),
+      Animated.timing(artistPickerBackdrop, {
+        toValue: 0,
+        duration: 180,
+        useNativeDriver: true,
+      }),
+    ]).start(() => {
+      setArtistPickerVisible(false);
       cb?.();
     });
   };
@@ -372,9 +417,37 @@ export const SongOptionsSheet: React.FC<Props> = ({
   };
 
   const handleGoToArtist = () => {
-    const artistName = song.primaryArtists || "Unknown Artist";
-    navigation.navigate("Artist", { artistName });
-    onClose();
+    if (!song) return;
+    const names = (song.primaryArtists || "Unknown Artist")
+      .split(",")
+      .map((n) => n.trim())
+      .filter(Boolean);
+
+    if (names.length === 1) {
+      navigation.navigate("Artist", { artistName: names[0] });
+      onClose();
+    } else {
+      onClose(); // close main sheet first
+      setTimeout(async () => {
+        setLoadingArtists(true);
+        openArtistPicker();
+
+        try {
+          const results = await Promise.all(
+            names.map(async (name) => {
+              const res = await searchArtists(name, 1);
+              if (res && res.length > 0) return res[0];
+              return { id: name, name, imageUrl: undefined };
+            })
+          );
+          setArtistData(results);
+        } catch (e) {
+          setArtistData(names.map((name) => ({ id: name, name })));
+        } finally {
+          setLoadingArtists(false);
+        }
+      }, 280);
+    }
   };
 
   const handleDetails = () => {
@@ -721,10 +794,86 @@ export const SongOptionsSheet: React.FC<Props> = ({
     </Modal>
   );
 
+  const artistPickerSheet = (
+    <Modal
+      visible={artistPickerVisible}
+      transparent
+      animationType="none"
+      onRequestClose={() => closeArtistPicker()}
+    >
+      <TouchableWithoutFeedback onPress={() => closeArtistPicker()}>
+        <Animated.View style={[styles.backdrop, { opacity: artistPickerBackdrop }]} />
+      </TouchableWithoutFeedback>
+      <Animated.View
+        style={[
+          styles.pickerSheet,
+          {
+            backgroundColor: palette.card,
+            transform: [{ translateY: artistPickerAnim }],
+          },
+        ]}
+      >
+        <View style={styles.handleContainer}>
+          <View style={[styles.handle, { backgroundColor: palette.border }]} />
+        </View>
+        <View style={[styles.pickerHeader, { borderBottomColor: palette.border }]}>
+          <Text style={[styles.pickerTitle, { color: palette.text }]}>
+            Artists
+          </Text>
+        </View>
+
+        {loadingArtists && artistData.length === 0 ? (
+          <View style={{ padding: 40, alignItems: "center" }}>
+            <ActivityIndicator size="small" color={palette.primary} />
+          </View>
+        ) : (
+          <FlatList
+            data={artistData}
+            keyExtractor={(item, index) => item.id + index}
+            showsVerticalScrollIndicator={false}
+            contentContainerStyle={{ paddingBottom: 32 }}
+            renderItem={({ item }: { item: ArtistItem }) => (
+              <TouchableOpacity
+                style={[styles.pickerRow, { borderBottomColor: palette.border }]}
+                activeOpacity={0.7}
+                onPress={() =>
+                  closeArtistPicker(() => {
+                    navigation.navigate("Artist", { artistName: item.name });
+                  })
+                }
+              >
+                {item.imageUrl ? (
+                  <Image source={{ uri: item.imageUrl }} style={[styles.pickerThumb, { borderRadius: 24 }]} />
+                ) : (
+                  <View
+                    style={[
+                      styles.pickerThumb,
+                      styles.pickerThumbPlaceholder,
+                      { backgroundColor: palette.backgroundSecondary, borderRadius: 24 },
+                    ]}
+                  >
+                    <Ionicons name="person" size={20} color={palette.textSecondary} />
+                  </View>
+                )}
+                <View style={styles.pickerInfo}>
+                  <Text style={[styles.pickerItemName, { color: palette.text }]} numberOfLines={1}>
+                    {item.name}
+                  </Text>
+                </View>
+                <Ionicons name="chevron-forward" size={20} color={palette.textSecondary} />
+              </TouchableOpacity>
+            )}
+          />
+        )}
+      </Animated.View>
+    </Modal>
+  );
+
   return (
     <>
       {mainSheet}
       {playlistPickerSheet}
+      {artistPickerSheet}
 
       {/* ── Queue toast (global, shown after sheet closes) ─────────────── */}
 
