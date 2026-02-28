@@ -12,10 +12,9 @@
 
 import { Ionicons } from "@expo/vector-icons";
 import { useNavigation } from "@react-navigation/native";
-import React, { useMemo, useRef, useState } from "react";
+import React, { useState } from "react";
 import {
   Alert,
-  Animated,
   FlatList,
   Image,
   KeyboardAvoidingView,
@@ -26,266 +25,19 @@ import {
   Text,
   TextInput,
   TouchableOpacity,
-  TouchableWithoutFeedback,
-  View,
+  View
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
-import { SongOptionsSheet } from "@/components/music/SongOptionsSheet";
 import { usePlayer } from "@/hooks/usePlayer";
 import { deleteSongDownload } from "@/services/player/download.service";
 import { Playlist, useLibraryStore } from "@/store/library.store";
 import { useThemeStore } from "@/store/theme.store";
 import { colors } from "@/theme/colors";
-import { Song } from "@/types/music.types";
 
 type LibTab = "Playlists" | "Downloads";
 
-// ── Playlist detail modal ─────────────────────────────────────────────────────
-type DetailProps = {
-  visible: boolean;
-  name: string;
-  songs: Song[];
-  isLiked?: boolean;
-  playlistId?: string;
-  onClose: () => void;
-  onPlay: (index: number) => void;
-  onShuffle: () => void;
-  onRename?: () => void; // undefined = hide ⋯ button (Liked Songs)
-  onDelete?: () => void;
-};
 
-const MENU_HEIGHT = 200;
-
-const PlaylistDetail = ({
-  visible, name, songs, isLiked, playlistId, onClose, onPlay, onShuffle, onRename, onDelete,
-}: DetailProps) => {
-  const colorScheme = useThemeStore((s) => s.colorScheme);
-  const palette = colors[colorScheme];
-  const cover = songs.find((s) => s.imageUrl)?.imageUrl;
-  const [optionsSong, setOptionsSong] = useState<Song | null>(null);
-
-  // ── Playlist menu sheet ───────────────────────────────────────────
-  const [menuVisible, setMenuVisible] = useState(false);
-  const menuAnim = useRef(new Animated.Value(MENU_HEIGHT)).current;
-  const menuBackdrop = useRef(new Animated.Value(0)).current;
-
-  const openMenu = () => {
-    setMenuVisible(true);
-    Animated.parallel([
-      Animated.spring(menuAnim, { toValue: 0, useNativeDriver: true, tension: 80, friction: 12 }),
-      Animated.timing(menuBackdrop, { toValue: 1, duration: 220, useNativeDriver: true }),
-    ]).start();
-  };
-
-  const closeMenu = (cb?: () => void) => {
-    Animated.parallel([
-      Animated.spring(menuAnim, { toValue: MENU_HEIGHT, useNativeDriver: true, tension: 80, friction: 12 }),
-      Animated.timing(menuBackdrop, { toValue: 0, duration: 180, useNativeDriver: true }),
-    ]).start(() => { setMenuVisible(false); cb?.(); });
-  };
-
-  return (
-    <Modal visible={visible} animationType="slide" onRequestClose={onClose}>
-      <SafeAreaView
-        style={[styles.detailSafe, { backgroundColor: palette.background }]}
-        edges={["top"]}
-      >
-        {/* Header — back ← left, ⋯ right */}
-        <View style={styles.detailHeader}>
-          <TouchableOpacity onPress={onClose} style={styles.backBtn}>
-            <Ionicons name="arrow-back" size={24} color={palette.text} />
-          </TouchableOpacity>
-          <View style={{ flex: 1 }} />
-          {onRename && (
-            <TouchableOpacity onPress={openMenu} style={styles.backBtn}>
-              <Ionicons name="ellipsis-vertical" size={22} color={palette.text} />
-            </TouchableOpacity>
-          )}
-        </View>
-
-        {/* Cover + title */}
-        <View style={styles.detailHero}>
-          {cover ? (
-            <Image source={{ uri: cover }} style={styles.detailCover} />
-          ) : (
-            <View
-              style={[
-                styles.detailCover,
-                styles.detailCoverPlaceholder,
-                {
-                  backgroundColor: isLiked
-                    ? "#4B2DB5"
-                    : palette.backgroundSecondary,
-                },
-              ]}
-            >
-              <Ionicons
-                name={isLiked ? "heart" : "musical-notes"}
-                size={52}
-                color="#fff"
-              />
-            </View>
-          )}
-          <Text style={[styles.detailTitle, { color: palette.text }]}>
-            {name}
-          </Text>
-          <Text style={[styles.detailSub, { color: palette.textSecondary }]}>
-            {songs.length} song{songs.length !== 1 ? "s" : ""}
-          </Text>
-        </View>
-
-        {/* Action row */}
-        <View style={styles.detailActions}>
-          <TouchableOpacity
-            onPress={onShuffle}
-            style={[styles.shuffleBtn, { borderColor: palette.border }]}
-          >
-            <Ionicons name="shuffle" size={20} color={palette.primary} />
-            <Text style={[styles.shuffleBtnText, { color: palette.primary }]}>
-              Shuffle
-            </Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            onPress={() => songs.length > 0 && onPlay(0)}
-            style={[styles.playAllBtn, { backgroundColor: palette.primary }]}
-          >
-            <Ionicons
-              name="play"
-              size={20}
-              color="#fff"
-              style={{ marginLeft: 3 }}
-            />
-            <Text style={styles.playAllBtnText}>Play All</Text>
-          </TouchableOpacity>
-        </View>
-
-        {/* Song list */}
-        <FlatList
-          data={songs}
-          keyExtractor={(item) => item.id}
-          contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 120 }}
-          ListEmptyComponent={
-            <View style={{ alignItems: "center", marginTop: 48, gap: 12 }}>
-              <Ionicons
-                name="musical-notes-outline"
-                size={52}
-                color={palette.border}
-              />
-              <Text style={{ color: palette.textSecondary, fontSize: 14 }}>
-                No songs yet
-              </Text>
-            </View>
-          }
-          renderItem={({ item, index }) => (
-            <TouchableOpacity
-              style={styles.songRow}
-              activeOpacity={0.7}
-              onPress={() => onPlay(index)}
-            >
-              {item.imageUrl ? (
-                <Image
-                  source={{ uri: item.imageUrl }}
-                  style={styles.songThumb}
-                />
-              ) : (
-                <View
-                  style={[
-                    styles.songThumb,
-                    {
-                      backgroundColor: palette.backgroundSecondary,
-                      alignItems: "center",
-                      justifyContent: "center",
-                    },
-                  ]}
-                >
-                  <Ionicons
-                    name="musical-notes"
-                    size={20}
-                    color={palette.textSecondary}
-                  />
-                </View>
-              )}
-              <View style={styles.songInfo}>
-                <Text
-                  style={[styles.songName, { color: palette.text }]}
-                  numberOfLines={1}
-                >
-                  {item.name}
-                </Text>
-                <Text
-                  style={[styles.songArtist, { color: palette.textSecondary }]}
-                  numberOfLines={1}
-                >
-                  {item.primaryArtists}
-                </Text>
-              </View>
-              <TouchableOpacity
-                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                onPress={() => setOptionsSong(item)}
-              >
-                <Ionicons
-                  name="ellipsis-vertical"
-                  size={18}
-                  color={palette.textSecondary}
-                />
-              </TouchableOpacity>
-            </TouchableOpacity>
-          )}
-        />
-      </SafeAreaView>
-
-      {/* ── Playlist options bottom sheet ── */}
-      <Modal visible={menuVisible} transparent animationType="none" onRequestClose={() => closeMenu()}>
-        <TouchableWithoutFeedback onPress={() => closeMenu()}>
-          <Animated.View style={[styles.menuBackdrop, { opacity: menuBackdrop }]} />
-        </TouchableWithoutFeedback>
-        <Animated.View style={[
-          styles.menuSheet,
-          { backgroundColor: palette.card, transform: [{ translateY: menuAnim }] },
-        ]}>
-          {/* Handle */}
-          <View style={styles.menuHandle}>
-            <View style={[styles.handleBar, { backgroundColor: palette.border }]} />
-          </View>
-          {/* Title */}
-          <Text style={[styles.menuTitle, { color: palette.text }]} numberOfLines={1}>{name}</Text>
-          {/* Rename */}
-          <TouchableOpacity
-            style={[styles.menuRow, { borderBottomColor: palette.border }]}
-            activeOpacity={0.7}
-            onPress={() => closeMenu(onRename)}
-          >
-            <View style={[styles.menuIconWrap, { backgroundColor: palette.primary + '22' }]}>
-              <Ionicons name="create" size={18} color={palette.primary} />
-            </View>
-            <Text style={[styles.menuRowText, { color: palette.text }]}>Rename Playlist</Text>
-            <Ionicons name="chevron-forward" size={16} color={palette.textSecondary} />
-          </TouchableOpacity>
-          {/* Delete */}
-          <TouchableOpacity
-            style={styles.menuRow}
-            activeOpacity={0.7}
-            onPress={() => closeMenu(onDelete)}
-          >
-            <View style={[styles.menuIconWrap, { backgroundColor: '#FEE2E2' }]}>
-              <Ionicons name="trash-outline" size={18} color="#EF4444" />
-            </View>
-            <Text style={[styles.menuRowText, { color: '#EF4444' }]}>Delete Playlist</Text>
-          </TouchableOpacity>
-        </Animated.View>
-      </Modal>
-
-      {/* Song options sheet */}
-      <SongOptionsSheet
-        visible={!!optionsSong}
-        song={optionsSong}
-        onClose={() => setOptionsSong(null)}
-        playlistId={playlistId}
-      />
-    </Modal>
-  );
-};
 
 // ── Main screen ───────────────────────────────────────────────────────────────
 export const PlaylistScreen = () => {
@@ -307,52 +59,18 @@ export const PlaylistScreen = () => {
   const deletePlaylist = useLibraryStore((s) => s.deletePlaylist);
   const renamePlaylist = useLibraryStore((s) => s.renamePlaylist);
 
-  // ── Detail view state ──────────────────────────────────────────────────────
-  const [detailPlaylist, setDetailPlaylist] = useState<Playlist | null>(null);
-  const [detailIsLiked, setDetailIsLiked] = useState(false);
-  const [detailName, setDetailName] = useState("");
 
-  // Compute songs LIVE from store so unliking/playlist edits update immediately
-  const detailSongs = useMemo(() => {
-    if (detailIsLiked) return likedSongs;
-    if (detailPlaylist) {
-      const live = playlists.find((p) => p.id === detailPlaylist.id);
-      return live?.songs ?? [];
-    }
-    return [];
-  }, [detailIsLiked, detailPlaylist, likedSongs, playlists]);
 
   // ── Helpers ──────────────────────────────────────────────────────────────────
   const openLikedSongs = () => {
-    setDetailName("Liked Songs");
-    setDetailIsLiked(true);
-    setDetailPlaylist(null);
+    navigation.navigate("LibraryPlaylist", { playlistId: "liked" });
   };
 
   const openPlaylist = (pl: Playlist) => {
-    setDetailName(pl.name);
-    setDetailIsLiked(false);
-    setDetailPlaylist(pl);
+    navigation.navigate("LibraryPlaylist", { playlistId: pl.id });
   };
 
-  const closeDetail = () => {
-    setDetailPlaylist(null);
-    setDetailIsLiked(false);
-    setDetailName("");
-  };
 
-  const handleDetailPlay = (index: number) => {
-    if (detailSongs.length === 0) return;
-    playFromSearch(detailSongs, index);
-    navigation.navigate("Player");
-  };
-
-  const handleDetailShuffle = () => {
-    if (detailSongs.length === 0) return;
-    const idx = Math.floor(Math.random() * detailSongs.length);
-    playFromSearch(detailSongs, idx);
-    navigation.navigate("Player");
-  };
 
   const handleCreate = () => {
     const name = newPlaylistName.trim();
@@ -637,19 +355,7 @@ export const PlaylistScreen = () => {
         />
       )}
 
-      {/* ── PLAYLIST DETAIL MODAL ── */}
-      <PlaylistDetail
-        visible={detailIsLiked || detailPlaylist !== null}
-        name={detailName}
-        songs={detailSongs}
-        isLiked={detailIsLiked}
-        playlistId={detailPlaylist?.id}
-        onClose={closeDetail}
-        onPlay={handleDetailPlay}
-        onShuffle={handleDetailShuffle}
-        onRename={detailPlaylist ? () => { setRenameTarget(detailPlaylist); setRenameText(detailPlaylist.name); } : undefined}
-        onDelete={detailPlaylist ? () => { handleDeletePlaylist(detailPlaylist); closeDetail(); } : undefined}
-      />
+
 
       {/* ── CREATE PLAYLIST MODAL ── */}
       <Modal
@@ -906,107 +612,4 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 12,
   },
-  backBtn: {
-    width: 38,
-    height: 38,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  detailHero: {
-    alignItems: "center",
-    paddingHorizontal: 24,
-    paddingBottom: 16,
-    gap: 10,
-  },
-  detailCover: {
-    width: 160,
-    height: 160,
-    borderRadius: 16,
-    shadowColor: "#000",
-    shadowOpacity: 0.3,
-    shadowRadius: 12,
-    shadowOffset: { width: 0, height: 6 },
-    elevation: 10,
-  },
-  detailCoverPlaceholder: { alignItems: "center", justifyContent: "center" },
-  detailTitle: { fontSize: 22, fontWeight: "800", textAlign: "center" },
-  detailSub: { fontSize: 14, textAlign: "center" },
-  detailActions: {
-    flexDirection: "row",
-    gap: 12,
-    paddingHorizontal: 24,
-    paddingBottom: 16,
-  },
-  shuffleBtn: {
-    flex: 1,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 8,
-    paddingVertical: 12,
-    borderRadius: 24,
-    borderWidth: 1.5,
-  },
-  shuffleBtnText: { fontSize: 14, fontWeight: "700" },
-  playAllBtn: {
-    flex: 1,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 8,
-    paddingVertical: 12,
-    borderRadius: 24,
-  },
-  playAllBtnText: { fontSize: 14, fontWeight: "700", color: "#fff" },
-  songRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingVertical: 8,
-    gap: 12,
-  },
-  songThumb: { width: 52, height: 52, borderRadius: 8 },
-  songInfo: { flex: 1, minWidth: 0 },
-  songName: { fontSize: 14, fontWeight: "600" },
-  songArtist: { fontSize: 12, marginTop: 2 },
-
-  // ── Playlist options menu ─────────────────────────────────────────────────────
-  menuBackdrop: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(0,0,0,0.55)',
-  },
-  menuSheet: {
-    position: 'absolute',
-    bottom: 0, left: 0, right: 0,
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    paddingBottom: 32,
-    elevation: 20,
-    shadowColor: '#000',
-    shadowOpacity: 0.25,
-    shadowRadius: 20,
-    shadowOffset: { width: 0, height: -4 },
-  },
-  menuHandle: { alignItems: 'center', paddingTop: 12, paddingBottom: 4 },
-  handleBar: { width: 40, height: 4, borderRadius: 2 },
-  menuTitle: {
-    fontSize: 16,
-    fontWeight: '700',
-    paddingHorizontal: 20,
-    paddingVertical: 14,
-    letterSpacing: 0.2,
-  },
-  menuRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 14,
-    paddingHorizontal: 20,
-    paddingVertical: 16,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-  },
-  menuIconWrap: {
-    width: 38, height: 38,
-    borderRadius: 19,
-    alignItems: 'center', justifyContent: 'center',
-  },
-  menuRowText: { flex: 1, fontSize: 15, fontWeight: '600' },
 });
