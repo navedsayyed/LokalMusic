@@ -298,7 +298,6 @@ export const PlaylistScreen = () => {
               activeOpacity={0.7}
               onPress={() => {
                 playFromSearch(downloads, index);
-                navigation.navigate("Player");
               }}
             >
               {item.imageUrl ? (

@@ -159,9 +159,8 @@ export const AlbumScreen = () => {
       if (songs.length === 0) return;
       setContextAndPlay(songs, index);
       setTimeout(() => loadAndPlayCurrent(), 80);
-      navigation.navigate("Player");
     },
-    [songs, setContextAndPlay, navigation],
+    [songs, setContextAndPlay],
   );
 
   const handleShufflePlay = useCallback(() => {
@@ -169,8 +168,7 @@ export const AlbumScreen = () => {
     const idx = Math.floor(Math.random() * songs.length);
     setContextAndPlay(songs, idx);
     setTimeout(() => loadAndPlayCurrent(), 80);
-    navigation.navigate("Player");
-  }, [songs, setContextAndPlay, navigation]);
+  }, [songs, setContextAndPlay]);
 
   /* ── Animated values ── */
   const backBtnBg = scrollY.interpolate({

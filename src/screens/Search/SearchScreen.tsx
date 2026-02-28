@@ -268,7 +268,6 @@ export const SearchScreen = () => {
                         album: { id: '', name: '' },
                       };
                       playFromSearch([fakeSong], 0);
-                      navigation.navigate('Player' as never);
                     }
                   }}
                 >
@@ -478,7 +477,6 @@ export const SearchScreen = () => {
                           imageUrl: item.imageUrl,
                         });
                         playFromSearch(sortedSongs, index);
-                        navigation.navigate('Player' as never);
                       }}
                     >
                       {/* Album art */}
