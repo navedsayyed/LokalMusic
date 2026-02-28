@@ -6,7 +6,6 @@ export type Song = {
   duration: number;
   language?: string;
   year?: string;
-  year?: string;
   album?: {
     id: string;
     name: string;
@@ -21,4 +20,12 @@ export type Artist = {
   id: string;
   name: string;
   imageUrl?: string;
+};
+
+export type PlaylistItem = {
+  id: string;
+  title: string;
+  subtitle: string;
+  imageUrl?: string;
+  songCount?: number;
 };

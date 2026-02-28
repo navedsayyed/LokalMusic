@@ -1,5 +1,5 @@
 import { useSettingsStore } from '@/store/settings.store';
-import { DownloadQuality, Song } from '@/types/music.types';
+import { DownloadQuality, PlaylistItem, Song } from '@/types/music.types';
 import { apiClient } from './axiosConfig';
 
 type SaavnSearchSong = {
@@ -244,6 +244,37 @@ export const searchAlbums = async (query: string, limit = 10): Promise<AlbumItem
   }
 };
 
+// ─── Playlist search ──────────────────────────────────────────────────────────
+
+export const searchPlaylists = async (query: string, limit = 10): Promise<PlaylistItem[]> => {
+  try {
+    const { data } = await apiClient.get<{
+      success: boolean;
+      data: { results: any[] };
+    }>('/api/search/playlists', { params: { query, limit } });
+
+    return (data?.data?.results ?? []).map((p: any) => {
+      // JioSaavn API uses 'title' in v1 but 'name' in some endpoints; try both
+      const title: string = p.title || p.name || 'Playlist';
+      // subtitle sometimes holds song count info like "25 Songs"
+      const subtitle: string = p.subtitle || p.description || '';
+      // songCount can come from `listCount`, `songCount`, or `song_count`
+      const songCount: number | undefined =
+        p.songCount ?? p.listCount ?? p.song_count ?? undefined;
+
+      return {
+        id: p.id,
+        title,
+        subtitle,
+        imageUrl: pickBestImageFromUrls(p.image),
+        songCount,
+      };
+    });
+  } catch {
+    return [];
+  }
+};
+
 
 // --- Album by ID ---
 export type AlbumDetail = { id: string; name: string; artist: string; imageUrl?: string; year?: string; songs: Song[]; };
@@ -256,5 +287,37 @@ export const getAlbumById = async (albumId: string): Promise<AlbumDetail | null>
     const artist = raw.artists?.primary?.map((a: any) => a.name).join(', ') ?? raw.primaryArtists ?? '';
     const songs: Song[] = (raw.songs ?? []).map(mapSaavnSearchSong);
     return { id: raw.id, name: raw.name, artist, imageUrl: pickBestImageFromUrls(raw.image), year: raw.year, songs };
+  } catch { return null; }
+};
+
+// --- Playlist by ID ---
+export type PlaylistDetail = {
+  id: string;
+  name: string;
+  description?: string;
+  imageUrl?: string;
+  fanCount?: number;
+  songs: Song[];
+};
+
+export const getPlaylistById = async (playlistId: string): Promise<PlaylistDetail | null> => {
+  try {
+    const { data } = await apiClient.get<{ success: boolean; data: any }>(
+      '/api/playlists',
+      { params: { id: playlistId } }
+    );
+    const raw = data?.data;
+    if (!raw) return null;
+    // Different API versions may use 'name' or 'title'
+    const name: string = raw.name || raw.title || 'Playlist';
+    const songs: Song[] = (raw.songs ?? []).map(mapSaavnSearchSong);
+    return {
+      id: raw.id,
+      name,
+      description: raw.description || raw.subtitle || undefined,
+      imageUrl: pickBestImageFromUrls(raw.image),
+      fanCount: raw.fanCount ?? raw.fan_count ?? undefined,
+      songs,
+    };
   } catch { return null; }
 };

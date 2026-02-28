@@ -5,7 +5,6 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Animated,
-  FlatList,
   Image,
   Keyboard,
   ScrollView,
@@ -14,7 +13,7 @@ import {
   TextInput,
   TouchableOpacity,
   TouchableWithoutFeedback,
-  View,
+  View
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -22,11 +21,14 @@ import { QueueSheet } from '@/components/music/QueueSheet';
 import { SongOptionsSheet } from '@/components/music/SongOptionsSheet';
 import { useDebounce } from '@/hooks/useDebounce';
 import { usePlayer } from '@/hooks/usePlayer';
-import { ArtistItem, searchArtists, searchSongs } from '@/services/api/music.api';
+import { AlbumItem, ArtistItem, searchAlbums, searchArtists, searchPlaylists, searchSongs } from '@/services/api/music.api';
 import { usePlayerStore } from '@/store/player.store';
 import { useThemeStore } from '@/store/theme.store';
 import { colors } from '@/theme/colors';
-import { Song } from '@/types/music.types';
+import { PlaylistItem, Song } from '@/types/music.types';
+
+type SearchFilter = 'Songs' | 'Playlists' | 'Albums' | 'Artists';
+const SEARCH_FILTERS: SearchFilter[] = ['Songs', 'Playlists', 'Albums', 'Artists'];
 
 type SortOption = 'Ascending' | 'Descending' | 'Artist' | 'Album' | 'Year' | 'Duration';
 const SORT_OPTIONS: SortOption[] = ['Ascending', 'Descending', 'Artist', 'Album', 'Year', 'Duration'];
@@ -52,8 +54,13 @@ export const SearchScreen = () => {
 
   const [query, setQuery] = useState('');
   const debouncedQuery = useDebounce(query, 400);
-  const [results, setResults] = useState<Song[]>([]);
+  const [activeFilter, setActiveFilter] = useState<SearchFilter>('Songs');
+
+  const [songResults, setSongResults] = useState<Song[]>([]);
   const [artistResults, setArtistResults] = useState<ArtistItem[]>([]);
+  const [albumResults, setAlbumResults] = useState<AlbumItem[]>([]);
+  const [playlistResults, setPlaylistResults] = useState<PlaylistItem[]>([]);
+
   const [loading, setLoading] = useState(false);
   const [sortOpen, setSortOpen] = useState(false);
   const [sortBy, setSortBy] = useState<SortOption>('Ascending');
@@ -126,23 +133,32 @@ export const SearchScreen = () => {
     showToast(`"${optionsSong.name}" plays next`);
   };
 
-  // ─── Search both songs & artists in parallel ─────────────────────────────
+  // ─── Search based on active filter ─────────────────────────────
   useEffect(() => {
     const run = async () => {
       if (!debouncedQuery.trim()) {
-        setResults([]);
+        setSongResults([]);
         setArtistResults([]);
+        setAlbumResults([]);
+        setPlaylistResults([]);
         return;
       }
       try {
         setLoading(true);
-        const [songs, artists] = await Promise.all([
-          searchSongs(debouncedQuery.trim()),
-          searchArtists(debouncedQuery.trim(), 8),
-        ]);
-        setResults(songs);
-        setArtistResults(artists);
-        // ← Do NOT auto-save here; we only save on explicit user action
+        const q = debouncedQuery.trim();
+        if (activeFilter === 'Songs') {
+          const songs = await searchSongs(q);
+          setSongResults(songs);
+        } else if (activeFilter === 'Artists') {
+          const artists = await searchArtists(q, 20);
+          setArtistResults(artists);
+        } else if (activeFilter === 'Albums') {
+          const albums = await searchAlbums(q, 20);
+          setAlbumResults(albums);
+        } else if (activeFilter === 'Playlists') {
+          const playlists = await searchPlaylists(q, 20);
+          setPlaylistResults(playlists);
+        }
       } catch (e) {
         console.warn('Search error', e);
       } finally {
@@ -150,10 +166,10 @@ export const SearchScreen = () => {
       }
     };
     run();
-  }, [debouncedQuery]);
+  }, [debouncedQuery, activeFilter]);
 
   const sortedSongs = useMemo(() => {
-    const data = [...results];
+    const data = [...songResults];
     switch (sortBy) {
       case 'Artist': return data.sort((a, b) => (a.primaryArtists || '').localeCompare(b.primaryArtists || ''));
       case 'Album': return data.sort((a, b) => (a.album?.name || '').localeCompare(b.album?.name || ''));
@@ -163,9 +179,9 @@ export const SearchScreen = () => {
       case 'Ascending':
       default: return data;
     }
-  }, [results, sortBy]);
+  }, [songResults, sortBy]);
 
-  const hasResults = sortedSongs.length > 0 || artistResults.length > 0;
+  const hasResults = sortedSongs.length > 0 || artistResults.length > 0 || albumResults.length > 0 || playlistResults.length > 0;
 
   return (
     <SafeAreaView style={[styles.safe, { backgroundColor: palette.background }]}>
@@ -200,8 +216,31 @@ export const SearchScreen = () => {
             )}
           </View>
 
-          {/* ── Search History (shown when input is focused + empty) ── */}
-          {inputFocused && query.length === 0 && history.length > 0 && (
+          {/* Search Filters / Chips */}
+          <View style={styles.filterContainer}>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filterScroll}>
+              {SEARCH_FILTERS.map((filter) => (
+                <TouchableOpacity
+                  key={filter}
+                  style={[
+                    styles.filterChip,
+                    {
+                      backgroundColor: activeFilter === filter ? palette.primary : palette.backgroundSecondary,
+                      borderColor: activeFilter === filter ? palette.primary : palette.border,
+                    },
+                  ]}
+                  onPress={() => setActiveFilter(filter)}
+                >
+                  <Text style={[styles.filterChipText, { color: activeFilter === filter ? '#fff' : palette.text }]}>
+                    {filter}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+          </View>
+
+          {/* ── Search History (shown when query is empty) ── */}
+          {query.length === 0 && history.length > 0 && (
             <View style={[styles.historyCard, { backgroundColor: palette.backgroundSecondary, borderColor: palette.border }]}>
               <View style={styles.historyHeader}>
                 <Text style={[styles.historyTitle, { color: palette.text }]}>Recent</Text>
@@ -288,47 +327,107 @@ export const SearchScreen = () => {
               showsVerticalScrollIndicator={false}
               contentContainerStyle={{ paddingBottom: 140 }}
             >
-              {/* ── Artists section ── */}
-              {artistResults.length > 0 && (
-                <View style={styles.section}>
-                  <Text style={[styles.sectionTitle, { color: palette.text }]}>Artists</Text>
-                  <FlatList
-                    data={artistResults}
-                    keyExtractor={(i) => i.id}
-                    horizontal
-                    showsHorizontalScrollIndicator={false}
-                    contentContainerStyle={{ paddingVertical: 8, paddingRight: 16, paddingLeft: 16 }}
-                    keyboardShouldPersistTaps="handled"
-                    renderItem={({ item }) => (
-                      <TouchableOpacity
-                        style={styles.artistCard}
-                        activeOpacity={0.75}
-                        onPress={() =>
-                          navigation.navigate('Artist', {
-                            artistId: item.id,
-                            artistName: item.name,
-                          })
-                        }
-                      >
-                        {item.imageUrl ? (
-                          <Image source={{ uri: item.imageUrl }} style={styles.artistAvatar} />
-                        ) : (
-                          <View style={[styles.artistAvatar, { backgroundColor: palette.backgroundSecondary, alignItems: 'center', justifyContent: 'center' }]}>
-                            <Ionicons name="person" size={30} color={palette.textSecondary} />
-                          </View>
-                        )}
-                        <Text style={[styles.artistName, { color: palette.text }]} numberOfLines={2}>
-                          {item.name}
-                        </Text>
-                        <Text style={[styles.artistLabel, { color: palette.textSecondary }]}>Artist</Text>
-                      </TouchableOpacity>
-                    )}
-                  />
+              {/* ── Artists List ── */}
+              {activeFilter === 'Artists' && artistResults.length > 0 && (
+                <View style={[styles.section, { paddingTop: 8 }]}>
+                  {artistResults.map((item) => (
+                    <TouchableOpacity
+                      key={item.id}
+                      style={styles.verticalRow}
+                      activeOpacity={0.7}
+                      onPress={() =>
+                        navigation.navigate('Artist', {
+                          artistId: item.id,
+                          artistName: item.name,
+                        })
+                      }
+                    >
+                      {item.imageUrl ? (
+                        <Image source={{ uri: item.imageUrl }} style={[styles.verticalThumb, styles.roundThumb]} />
+                      ) : (
+                        <View style={[styles.verticalThumb, styles.roundThumb, { backgroundColor: palette.backgroundSecondary, alignItems: 'center', justifyContent: 'center' }]}>
+                          <Ionicons name="person" size={24} color={palette.textSecondary} />
+                        </View>
+                      )}
+                      <View style={styles.verticalInfo}>
+                        <Text style={[styles.verticalName, { color: palette.text }]} numberOfLines={1}>{item.name}</Text>
+                        <Text style={[styles.verticalSub, { color: palette.textSecondary }]}>Artist</Text>
+                      </View>
+                    </TouchableOpacity>
+                  ))}
                 </View>
               )}
 
-              {/* ── Songs section header + sort ── */}
-              {sortedSongs.length > 0 && (
+              {/* ── Albums List ── */}
+              {activeFilter === 'Albums' && albumResults.length > 0 && (
+                <View style={[styles.section, { paddingTop: 8 }]}>
+                  {albumResults.map((item) => (
+                    <TouchableOpacity
+                      key={item.id}
+                      style={styles.verticalRow}
+                      activeOpacity={0.7}
+                      onPress={() =>
+                        navigation.navigate('Album', {
+                          albumId: item.id,
+                          albumName: item.name,
+                          albumImageUrl: item.imageUrl,
+                        })
+                      }
+                    >
+                      {item.imageUrl ? (
+                        <Image source={{ uri: item.imageUrl }} style={styles.verticalThumb} />
+                      ) : (
+                        <View style={[styles.verticalThumb, { backgroundColor: palette.backgroundSecondary, alignItems: 'center', justifyContent: 'center' }]}>
+                          <Ionicons name="albums" size={24} color={palette.textSecondary} />
+                        </View>
+                      )}
+                      <View style={styles.verticalInfo}>
+                        <Text style={[styles.verticalName, { color: palette.text }]} numberOfLines={1}>{item.name}</Text>
+                        <Text style={[styles.verticalSub, { color: palette.textSecondary }]}>
+                          Album{item.artist ? ` • ${item.artist}` : ''}
+                        </Text>
+                      </View>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              )}
+
+              {/* ── Playlists List ── */}
+              {activeFilter === 'Playlists' && playlistResults.length > 0 && (
+                <View style={[styles.section, { paddingTop: 8 }]}>
+                  {playlistResults.map((item) => (
+                    <TouchableOpacity
+                      key={item.id}
+                      style={styles.verticalRow}
+                      activeOpacity={0.7}
+                      onPress={() =>
+                        navigation.navigate('OnlinePlaylist', {
+                          playlistId: item.id,
+                          playlistTitle: item.title,
+                          playlistImageUrl: item.imageUrl,
+                        })
+                      }
+                    >
+                      {item.imageUrl ? (
+                        <Image source={{ uri: item.imageUrl }} style={styles.verticalThumb} />
+                      ) : (
+                        <View style={[styles.verticalThumb, { backgroundColor: palette.backgroundSecondary, alignItems: 'center', justifyContent: 'center' }]}>
+                          <Ionicons name="musical-notes" size={24} color={palette.textSecondary} />
+                        </View>
+                      )}
+                      <View style={styles.verticalInfo}>
+                        <Text style={[styles.verticalName, { color: palette.text }]} numberOfLines={1}>{item.title}</Text>
+                        <Text style={[styles.verticalSub, { color: palette.textSecondary }]} numberOfLines={1}>
+                          {'Playlist'}{item.songCount ? ` • ${item.songCount} songs` : (item.subtitle ? ` • ${item.subtitle}` : '')}
+                        </Text>
+                      </View>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              )}
+
+              {/* ── Songs List ── */}
+              {activeFilter === 'Songs' && sortedSongs.length > 0 && (
                 <>
                   <View style={styles.songsHeader}>
                     <Text style={[styles.sectionTitle, { color: palette.text }]}>
@@ -462,33 +561,56 @@ const styles = StyleSheet.create({
   },
   input: { flex: 1, fontSize: 15, margin: 0, padding: 0 },
 
+  // Filter Chips
+  filterContainer: {
+    paddingVertical: 6,
+  },
+  filterScroll: {
+    paddingHorizontal: 12,
+    gap: 6,
+    flexDirection: 'row',
+  },
+  filterChip: {
+    paddingHorizontal: 14,
+    paddingVertical: 6,
+    borderRadius: 20,
+    borderWidth: 1,
+  },
+  filterChipText: {
+    fontSize: 13,
+    fontWeight: '500',
+  },
+
   // Section
   section: { marginBottom: 4 },
   sectionTitle: { fontSize: 18, fontWeight: '700', paddingHorizontal: 16, paddingTop: 12, paddingBottom: 2 },
 
-  // Artist cards
-  artistCard: {
-    width: 88,
+  // Vertical Rows (Artists, Albums, Playlists)
+  verticalRow: {
+    flexDirection: 'row',
     alignItems: 'center',
-    marginRight: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    gap: 14,
   },
-  artistAvatar: {
-    width: 76,
-    height: 76,
-    borderRadius: 38,
-    backgroundColor: '#1a2340',
-    marginBottom: 6,
+  verticalThumb: {
+    width: 64,
+    height: 64,
+    borderRadius: 8,
   },
-  artistName: {
-    fontSize: 12,
+  roundThumb: {
+    borderRadius: 32,
+  },
+  verticalInfo: {
+    flex: 1,
+  },
+  verticalName: {
+    fontSize: 16,
     fontWeight: '600',
-    textAlign: 'center',
-    lineHeight: 16,
+    marginBottom: 4,
   },
-  artistLabel: {
-    fontSize: 11,
-    marginTop: 2,
-    textAlign: 'center',
+  verticalSub: {
+    fontSize: 13,
   },
 
   // Songs header

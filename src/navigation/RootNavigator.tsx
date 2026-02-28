@@ -6,6 +6,7 @@ import { MiniPlayer } from "@/components/music/MiniPlayer";
 import { AlbumScreen } from "@/screens/Album/AlbumScreen";
 import { ArtistScreen } from "@/screens/Artist/ArtistScreen";
 import { PlayerScreen } from "@/screens/Player/PlayerScreen";
+import { OnlinePlaylistScreen } from "@/screens/Playlist/OnlinePlaylistScreen";
 import { SearchScreen } from "@/screens/Search/SearchScreen";
 import { useUIStore } from "@/store/ui.store";
 import { BottomTabs } from "./BottomTabs";
@@ -14,8 +15,9 @@ export type RootStackParamList = {
   MainTabs: undefined;
   Search: undefined;
   Player: undefined;
-  Album: { albumId?: string; albumName?: string } | undefined;
+  Album: { albumId?: string; albumName?: string; albumImageUrl?: string } | undefined;
   Artist: { artistId?: string; artistName: string } | undefined;
+  OnlinePlaylist: { playlistId: string; playlistTitle?: string; playlistImageUrl?: string };
 };
 
 const Stack = createStackNavigator<RootStackParamList>();
@@ -48,6 +50,7 @@ export const RootNavigator = () => {
         />
         <Stack.Screen name="Album" component={AlbumScreen} />
         <Stack.Screen name="Artist" component={ArtistScreen} />
+        <Stack.Screen name="OnlinePlaylist" component={OnlinePlaylistScreen} />
       </Stack.Navigator>
       <ConditionalMiniPlayer />
     </View>
