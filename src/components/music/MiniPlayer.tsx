@@ -4,8 +4,8 @@ import React from "react";
 import { Image, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 
 import {
-    loadAndPlayCurrent,
-    togglePlayPause,
+  loadAndPlayCurrent,
+  togglePlayPause,
 } from "@/services/player/audio.service";
 import { usePlayerStore } from "@/store/player.store";
 import { useThemeStore } from "@/store/theme.store";
@@ -14,16 +14,19 @@ import { colors } from "@/theme/colors";
 export const MiniPlayer = () => {
   const colorScheme = useThemeStore((s) => s.colorScheme);
   const palette = colors[colorScheme];
-  // Subscribe to all relevant state so the mini player re-renders on every change
-  const getCurrentSong = usePlayerStore((s) => s.getCurrentSong);
+  // Subscribing to the current song accurately so it updates instantly
+  const current = usePlayerStore((s) => {
+    if (s.isPlayingFromUser && s.userQueue.length > 0) return s.userQueue[0];
+    if (s.shuffle) return s.shuffledContext[s.shuffledIndex] ?? null;
+    return s.contextQueue[s.contextIndex] ?? null;
+  });
+
   const isPlaying = usePlayerStore((s) => s.isPlaying);
   const positionMillis = usePlayerStore((s) => s.positionMillis);
   const durationMillis = usePlayerStore((s) => s.durationMillis);
   const next = usePlayerStore((s) => s.next);
   const previous = usePlayerStore((s) => s.previous);
   const navigation = useNavigation();
-
-  const current = getCurrentSong();
   if (!current) return null;
 
   const progress =

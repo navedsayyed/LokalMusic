@@ -243,9 +243,8 @@ export const HomeScreen = () => {
   const handlePlay = useCallback(
     (index: number) => {
       playFromSearch(sortedSongs, index);
-      navigation.navigate("Player");
     },
-    [sortedSongs, playFromSearch, navigation],
+    [sortedSongs, playFromSearch],
   );
 
   const handleMore = useCallback((song: Song) => {
@@ -284,7 +283,6 @@ export const HomeScreen = () => {
                 activeOpacity={0.75}
                 onPress={() => {
                   playFromSearch(suggestedSongs, index);
-                  navigation.navigate("Player");
                 }}
               >
                 {song.imageUrl ? (
@@ -399,7 +397,6 @@ export const HomeScreen = () => {
                     style={styles.albumCard}
                     onPress={() => {
                       playFromSearch(suggestedSongs, index + 6);
-                      navigation.navigate("Player");
                     }}
                   >
                     {item.imageUrl ? (
