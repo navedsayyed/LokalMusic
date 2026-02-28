@@ -2,17 +2,17 @@ import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
-    ActivityIndicator,
-    Animated,
-    Dimensions,
-    Image,
-    Platform,
-    Pressable,
-    StatusBar,
-    StyleSheet,
-    Text,
-    TouchableOpacity,
-    View,
+  ActivityIndicator,
+  Animated,
+  Dimensions,
+  Image,
+  Platform,
+  Pressable,
+  StatusBar,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
 } from "react-native";
 
 import { SongOptionsSheet } from "@/components/music/SongOptionsSheet";
@@ -157,10 +157,9 @@ export const ArtistScreen = () => {
   const [following, setFollowing] = useState(false);
   const [optionsSong, setOptionsSong] = useState<Song | null>(null);
 
-  const setQueueAndPlay = usePlayerStore((s) => s.setQueueAndPlay);
-  const currentQueue = usePlayerStore((s) => s.queue);
-  const currentIndex = usePlayerStore((s) => s.currentIndex);
-  const currentSongId = currentQueue[currentIndex]?.id;
+  const setContextAndPlay = usePlayerStore((s) => s.setContextAndPlay);
+  const getCurrentSong = usePlayerStore((s) => s.getCurrentSong);
+  const currentSongId = getCurrentSong()?.id;
 
   const scrollY = useRef(new Animated.Value(0)).current;
 
@@ -175,18 +174,18 @@ export const ArtistScreen = () => {
 
   const handlePlay = useCallback(
     (index: number) => {
-      setQueueAndPlay(songs, index);
+      setContextAndPlay(songs, index);
       setTimeout(() => loadAndPlayCurrent(), 80);
     },
-    [songs, setQueueAndPlay],
+    [songs, setContextAndPlay],
   );
 
   const handleShufflePlay = useCallback(() => {
     if (songs.length === 0) return;
     const randomIndex = Math.floor(Math.random() * songs.length);
-    setQueueAndPlay(songs, randomIndex);
+    setContextAndPlay(songs, randomIndex);
     setTimeout(() => loadAndPlayCurrent(), 80);
-  }, [songs, setQueueAndPlay]);
+  }, [songs, setContextAndPlay]);
 
   /* ── Animated scroll values ── */
   // Back button fades in as hero scrolls away

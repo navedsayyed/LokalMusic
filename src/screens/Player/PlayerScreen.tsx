@@ -2,14 +2,14 @@ import { Ionicons } from "@expo/vector-icons";
 import { useNavigation } from "@react-navigation/native";
 import React, { useEffect, useRef, useState } from "react";
 import {
-    Dimensions,
-    Image,
-    PanResponder,
-    Share,
-    StyleSheet,
-    Text,
-    TouchableOpacity,
-    View,
+  Dimensions,
+  Image,
+  PanResponder,
+  Share,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
@@ -17,9 +17,9 @@ import { LyricsModal } from "@/components/music/LyricsModal";
 import { QueueSheet } from "@/components/music/QueueSheet";
 import { SongOptionsSheet } from "@/components/music/SongOptionsSheet";
 import {
-    loadAndPlayCurrent,
-    seekTo,
-    togglePlayPause,
+  loadAndPlayCurrent,
+  seekTo,
+  togglePlayPause,
 } from "@/services/player/audio.service";
 import { useLibraryStore } from "@/store/library.store";
 import { usePlayerStore } from "@/store/player.store";
@@ -54,8 +54,7 @@ export const PlayerScreen = () => {
   }, [setPlayerOpen]);
 
   const {
-    queue,
-    currentIndex,
+    getCurrentSong,
     isPlaying,
     positionMillis,
     durationMillis,
@@ -67,7 +66,7 @@ export const PlayerScreen = () => {
     cycleRepeat,
   } = usePlayerStore();
 
-  const current = queue[currentIndex];
+  const current = getCurrentSong();
   const liked = current ? isLiked(current.id) : false;
   const seekBarWidth = useRef(SCREEN_WIDTH - 64);
 

@@ -18,8 +18,7 @@ export const MiniPlayer = () => {
   const colorScheme = useThemeStore((s) => s.colorScheme);
   const palette = colors[colorScheme];
   // Subscribe to all relevant state so the mini player re-renders on every change
-  const queue = usePlayerStore((s) => s.queue);
-  const currentIndex = usePlayerStore((s) => s.currentIndex);
+  const getCurrentSong = usePlayerStore((s) => s.getCurrentSong);
   const isPlaying = usePlayerStore((s) => s.isPlaying);
   const positionMillis = usePlayerStore((s) => s.positionMillis);
   const durationMillis = usePlayerStore((s) => s.durationMillis);
@@ -27,7 +26,7 @@ export const MiniPlayer = () => {
   const previous = usePlayerStore((s) => s.previous);
   const navigation = useNavigation();
 
-  const current = queue[currentIndex];
+  const current = getCurrentSong();
   if (!current) return null;
 
   const progress = durationMillis > 0 ? Math.min(1, positionMillis / durationMillis) : 0;

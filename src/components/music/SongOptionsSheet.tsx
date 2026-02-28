@@ -137,12 +137,6 @@ export const SongOptionsSheet: React.FC<Props> = ({
     onClose();
   };
 
-  const handlePlayNext = () => {
-    if (onPlayNext) onPlayNext();
-    else enqueueNext(song);
-    onClose();
-  };
-
   const handleAddToQueue = () => {
     if (onAddToQueue) onAddToQueue();
     else enqueueToEnd(song);
@@ -245,11 +239,6 @@ export const SongOptionsSheet: React.FC<Props> = ({
       label: downloaded ? 'Downloaded ✓' : (downloading ? `Downloading ${Math.round(dlProgress * 100)}%` : 'Download'),
       color: downloaded ? '#1DB954' : undefined,
       onPress: handleDownload,
-    },
-    {
-      icon: 'play-skip-forward-outline',
-      label: 'Play Next',
-      onPress: handlePlayNext,
     },
     {
       icon: 'list-outline',

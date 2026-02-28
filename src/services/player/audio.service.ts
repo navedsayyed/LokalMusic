@@ -26,46 +26,52 @@ const onPlaybackStatusUpdate = (status: AVPlaybackStatus) => {
     status.durationMillis ?? store.durationMillis,
   );
   if (status.didJustFinish && !status.isLooping) {
-    // Auto-advance to next song
     store.next();
-    // Small delay to let state settle
-    setTimeout(() => {
-      loadAndPlayCurrent();
-    }, 300);
+    setTimeout(() => { loadAndPlayCurrent(); }, 300);
   }
 };
 
 export const loadAndPlayCurrent = async () => {
   const store = usePlayerStore.getState();
-  let song = store.queue[store.currentIndex];
 
+  // ── Use new dual-queue getCurrentSong helper ──────────────────────────────
+  let song = store.getCurrentSong();
   if (!song) return;
 
   try {
-    // Fetch detailed song info if no stream URL
-    if (!song?.streamUrl) {
+    // Fetch stream URL if missing
+    if (!song.streamUrl) {
       const detailed = await getSongById(song.id);
       if (!detailed?.streamUrl) {
-        console.warn('No stream URL available for song', song?.id);
+        console.warn('No stream URL for', song.id);
         store.setPlaying(false);
         return;
       }
-      // Merge: keep original metadata (artist, name, image) if detailed fetch returned blanks
-      const merged = {
+      song = {
         ...detailed,
         primaryArtists: detailed.primaryArtists || song.primaryArtists,
         name: detailed.name || song.name,
         imageUrl: detailed.imageUrl || song.imageUrl,
       };
-      const newQueue = [...store.queue];
-      newQueue[store.currentIndex] = merged;
-      store.setQueueAndPlay(newQueue, store.currentIndex);
-      song = merged;
+
+      // Patch stream URL into the correct queue slot
+      const s = usePlayerStore.getState();
+      if (s.isPlayingFromUser && s.userQueue.length > 0) {
+        // Patch userQueue[0]
+        const uq = [...s.userQueue];
+        uq[0] = song;
+        store.setPosition(0, song.duration ? song.duration * 1000 : 0);
+      } else {
+        // Patch contextQueue at contextIndex
+        const cq = [...s.contextQueue];
+        cq[s.contextIndex] = song;
+        // Re-set with patched queue (keep index, wipe userQueue to avoid recursion)
+        usePlayerStore.setState({ contextQueue: cq });
+      }
     }
 
     await configureAudio();
 
-    // Unload previous sound
     if (sound) {
       sound.setOnPlaybackStatusUpdate(null);
       await sound.unloadAsync();
@@ -82,22 +88,16 @@ export const loadAndPlayCurrent = async () => {
     sound = newSound;
     store.setPlaying(true);
   } catch (e) {
-    console.error('Error loading/playing audio', e);
+    console.error('Audio load error', e);
     store.setPlaying(false);
   }
 };
 
 export const togglePlayPause = async () => {
-  if (!sound) {
-    await loadAndPlayCurrent();
-    return;
-  }
+  if (!sound) { await loadAndPlayCurrent(); return; }
   try {
     const status = await sound.getStatusAsync();
-    if (!status.isLoaded) {
-      await loadAndPlayCurrent();
-      return;
-    }
+    if (!status.isLoaded) { await loadAndPlayCurrent(); return; }
     if (status.isPlaying) {
       await sound.pauseAsync();
       usePlayerStore.getState().setPlaying(false);
@@ -112,11 +112,8 @@ export const togglePlayPause = async () => {
 
 export const seekTo = async (positionMillis: number) => {
   if (!sound) return;
-  try {
-    await sound.setPositionAsync(Math.max(0, positionMillis));
-  } catch (e) {
-    console.error('seekTo error', e);
-  }
+  try { await sound.setPositionAsync(Math.max(0, positionMillis)); }
+  catch (e) { console.error('seekTo error', e); }
 };
 
 export const getCurrentSound = () => sound;
