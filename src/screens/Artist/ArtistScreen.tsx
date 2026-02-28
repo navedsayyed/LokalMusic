@@ -16,7 +16,7 @@ import {
 } from "react-native";
 
 import { SongOptionsSheet } from "@/components/music/SongOptionsSheet";
-import { searchSongs } from "@/services/api/music.api";
+import { searchArtists, searchSongs } from "@/services/api/music.api";
 import { loadAndPlayCurrent } from "@/services/player/audio.service";
 import { usePlayerStore } from "@/store/player.store";
 import { useThemeStore } from "@/store/theme.store";
@@ -156,6 +156,7 @@ export const ArtistScreen = () => {
   const [loading, setLoading] = useState(true);
   const [following, setFollowing] = useState(false);
   const [optionsSong, setOptionsSong] = useState<Song | null>(null);
+  const [fetchedArtistImageUrl, setFetchedArtistImageUrl] = useState<string | undefined>(undefined);
 
   const setContextAndPlay = usePlayerStore((s) => s.setContextAndPlay);
   const getCurrentSong = usePlayerStore((s) => s.getCurrentSong);
@@ -166,11 +167,29 @@ export const ArtistScreen = () => {
   useEffect(() => {
     if (!params?.artistName) return;
     setLoading(true);
+    setSongs([]);
     searchSongs(params.artistName, 1, 20).then((result) => {
       setSongs(result);
       setLoading(false);
     });
   }, [params?.artistName]);
+
+  // Always reset + re-fetch real artist photo whenever the artist changes
+  useEffect(() => {
+    if (!params?.artistName) return;
+    // If the caller already supplied a photo URL, use it immediately
+    if (typeof params.artistImageUrl === "string" && params.artistImageUrl) {
+      setFetchedArtistImageUrl(params.artistImageUrl);
+      return;
+    }
+    // Otherwise fetch from the artists search API
+    setFetchedArtistImageUrl(undefined);
+    searchArtists(params.artistName, 1).then((results) => {
+      if (results[0]?.imageUrl) {
+        setFetchedArtistImageUrl(results[0].imageUrl);
+      }
+    });
+  }, [params?.artistName, params?.artistImageUrl]);
 
   const handlePlay = useCallback(
     (index: number) => {
@@ -209,12 +228,7 @@ export const ArtistScreen = () => {
     extrapolate: "clamp",
   });
 
-  const artistImageUrl =
-    typeof params.artistImageUrl === "string" && params.artistImageUrl
-      ? params.artistImageUrl
-      : typeof songs[0]?.imageUrl === "string"
-        ? songs[0]?.imageUrl
-        : undefined;
+  const artistImageUrl = fetchedArtistImageUrl;
 
   const renderHeader = () => (
     <>
