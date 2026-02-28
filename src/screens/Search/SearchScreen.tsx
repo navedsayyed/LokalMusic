@@ -454,32 +454,7 @@ export const SearchScreen = () => {
                       Songs
                       <Text style={[styles.songCount, { color: palette.textSecondary }]}> · {sortedSongs.length}</Text>
                     </Text>
-                    <View>
-                      <TouchableOpacity
-                        style={[styles.sortBtn, { borderColor: palette.border }]}
-                        onPress={() => setSortOpen((v) => !v)}
-                      >
-                        <Text style={[styles.sortBtnText, { color: palette.primary }]}>{sortBy}</Text>
-                        <Ionicons name="swap-vertical" size={14} color={palette.primary} />
-                      </TouchableOpacity>
 
-                      {sortOpen && (
-                        <View style={[styles.sortMenu, { backgroundColor: palette.card, borderColor: palette.border }]}>
-                          {SORT_OPTIONS.map((opt) => (
-                            <TouchableOpacity
-                              key={opt}
-                              style={styles.sortItem}
-                              onPress={() => { setSortBy(opt); setSortOpen(false); }}
-                            >
-                              <Text style={{ color: sortBy === opt ? palette.primary : palette.text, fontSize: 14 }}>{opt}</Text>
-                              <View style={[styles.radioOuter, { borderColor: sortBy === opt ? palette.primary : palette.border }]}>
-                                {sortBy === opt && <View style={[styles.radioInner, { backgroundColor: palette.primary }]} />}
-                              </View>
-                            </TouchableOpacity>
-                          ))}
-                        </View>
-                      )}
-                    </View>
                   </View>
 
                   {/* Song rows */}

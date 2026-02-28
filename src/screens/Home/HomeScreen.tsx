@@ -553,67 +553,7 @@ export const HomeScreen = () => {
           {loading ? "Loading..." : `${sortedSongs.length} songs`}
         </Text>
         {/* Sort button */}
-        <View>
-          <TouchableOpacity
-            style={[styles.sortBtn, { borderColor: palette.border }]}
-            onPress={() => setSortMenuVisible((v) => !v)}
-          >
-            <Text style={[styles.sortBtnText, { color: palette.primary }]}>
-              {sortBy}
-            </Text>
-            <Ionicons name="swap-vertical" size={14} color={palette.primary} />
-          </TouchableOpacity>
 
-          {/* Sort Dropdown */}
-          {sortMenuVisible && (
-            <View
-              style={[
-                styles.sortMenu,
-                { backgroundColor: palette.card, borderColor: palette.border },
-              ]}
-            >
-              {SORT_OPTIONS.map((opt) => (
-                <TouchableOpacity
-                  key={opt}
-                  style={styles.sortMenuItem}
-                  onPress={() => {
-                    setSortBy(opt);
-                    setSortMenuVisible(false);
-                  }}
-                >
-                  <Text
-                    style={[
-                      styles.sortMenuText,
-                      {
-                        color: sortBy === opt ? palette.primary : palette.text,
-                      },
-                    ]}
-                  >
-                    {opt}
-                  </Text>
-                  <View
-                    style={[
-                      styles.radioOuter,
-                      {
-                        borderColor:
-                          sortBy === opt ? palette.primary : palette.border,
-                      },
-                    ]}
-                  >
-                    {sortBy === opt && (
-                      <View
-                        style={[
-                          styles.radioInner,
-                          { backgroundColor: palette.primary },
-                        ]}
-                      />
-                    )}
-                  </View>
-                </TouchableOpacity>
-              ))}
-            </View>
-          )}
-        </View>
       </View>
 
       {loading ? (
