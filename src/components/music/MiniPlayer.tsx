@@ -1,18 +1,15 @@
-import { Ionicons } from '@expo/vector-icons';
-import { useNavigation } from '@react-navigation/native';
-import React from 'react';
-import {
-  Image,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View,
-} from 'react-native';
+import { Ionicons } from "@expo/vector-icons";
+import { useNavigation } from "@react-navigation/native";
+import React from "react";
+import { Image, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 
-import { loadAndPlayCurrent, togglePlayPause } from '@/services/player/audio.service';
-import { usePlayerStore } from '@/store/player.store';
-import { useThemeStore } from '@/store/theme.store';
-import { colors } from '@/theme/colors';
+import {
+    loadAndPlayCurrent,
+    togglePlayPause,
+} from "@/services/player/audio.service";
+import { usePlayerStore } from "@/store/player.store";
+import { useThemeStore } from "@/store/theme.store";
+import { colors } from "@/theme/colors";
 
 export const MiniPlayer = () => {
   const colorScheme = useThemeStore((s) => s.colorScheme);
@@ -29,7 +26,8 @@ export const MiniPlayer = () => {
   const current = getCurrentSong();
   if (!current) return null;
 
-  const progress = durationMillis > 0 ? Math.min(1, positionMillis / durationMillis) : 0;
+  const progress =
+    durationMillis > 0 ? Math.min(1, positionMillis / durationMillis) : 0;
 
   const handleNext = (e: any) => {
     e.stopPropagation();
@@ -47,11 +45,20 @@ export const MiniPlayer = () => {
   return (
     <TouchableOpacity
       activeOpacity={0.95}
-      onPress={() => navigation.navigate('Player' as never)}
-      style={[styles.container, { backgroundColor: palette.card, borderColor: palette.border }]}
+      onPress={() => navigation.navigate("Player" as never)}
+      style={[
+        styles.container,
+        { backgroundColor: palette.card, borderColor: palette.border },
+      ]}
     >
-      {/* Progress bar at very top */}
-      <View style={[styles.progressTrack, { backgroundColor: palette.border }]}>
+      {/* Progress bar at very bottom */}
+      <View
+        style={[
+          styles.progressTrack,
+          styles.progressBarBottom,
+          { backgroundColor: palette.border },
+        ]}
+      >
         <View
           style={[
             styles.progressFill,
@@ -72,16 +79,26 @@ export const MiniPlayer = () => {
               { backgroundColor: palette.backgroundSecondary },
             ]}
           >
-            <Ionicons name="musical-notes" size={18} color={palette.textSecondary} />
+            <Ionicons
+              name="musical-notes"
+              size={18}
+              color={palette.textSecondary}
+            />
           </View>
         )}
 
         {/* Song info */}
         <View style={styles.info}>
-          <Text style={[styles.title, { color: palette.text }]} numberOfLines={1}>
+          <Text
+            style={[styles.title, { color: palette.text }]}
+            numberOfLines={1}
+          >
             {current.name}
           </Text>
-          <Text style={[styles.artist, { color: palette.textSecondary }]} numberOfLines={1}>
+          <Text
+            style={[styles.artist, { color: palette.textSecondary }]}
+            numberOfLines={1}
+          >
             {current.primaryArtists}
           </Text>
         </View>
@@ -100,7 +117,7 @@ export const MiniPlayer = () => {
             style={[styles.playBtn, { backgroundColor: palette.primary }]}
           >
             <Ionicons
-              name={isPlaying ? 'pause' : 'play'}
+              name={isPlaying ? "pause" : "play"}
               size={18}
               color="#fff"
               style={isPlaying ? undefined : { marginLeft: 2 }}
@@ -118,40 +135,55 @@ export const MiniPlayer = () => {
 
 const styles = StyleSheet.create({
   container: {
-    position: 'absolute',
+    position: "absolute",
     left: 10,
     right: 10,
     bottom: 66,
     borderRadius: 18,
     borderWidth: 1,
-    overflow: 'hidden',
+    overflow: "hidden",
     elevation: 10,
-    shadowColor: '#000',
+    shadowColor: "#000",
     shadowOpacity: 0.14,
     shadowRadius: 14,
     shadowOffset: { width: 0, height: -2 },
   },
-  progressTrack: { height: 2, width: '100%' },
+  progressTrack: { height: 2, width: "100%" },
   progressFill: { height: 2 },
   row: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     paddingHorizontal: 12,
     paddingVertical: 10,
     gap: 10,
   },
   thumb: { width: 46, height: 46, borderRadius: 10 },
-  thumbPlaceholder: { alignItems: 'center', justifyContent: 'center' },
+  thumbPlaceholder: { alignItems: "center", justifyContent: "center" },
   info: { flex: 1, minWidth: 0 },
-  title: { fontSize: 14, fontWeight: '600' },
+  title: { fontSize: 14, fontWeight: "600" },
   artist: { fontSize: 12, marginTop: 2 },
-  controls: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  ctrlBtn: { width: 36, height: 36, alignItems: 'center', justifyContent: 'center' },
+  controls: { flexDirection: "row", alignItems: "center", gap: 6 },
+  ctrlBtn: {
+    width: 36,
+    height: 36,
+    alignItems: "center",
+    justifyContent: "center",
+  },
   playBtn: {
     width: 36,
     height: 36,
     borderRadius: 18,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  progressBarBottom: {
+    position: "absolute",
+    left: 0,
+    right: 0,
+    bottom: 0,
+    height: 2,
+    borderBottomLeftRadius: 18,
+    borderBottomRightRadius: 18,
+    overflow: "hidden",
   },
 });
