@@ -64,6 +64,11 @@ export const SearchScreen = () => {
   const [loading, setLoading] = useState(false);
   const [sortOpen, setSortOpen] = useState(false);
   const [sortBy, setSortBy] = useState<SortOption>('Ascending');
+  const currentSongId = usePlayerStore((s) => {
+    if (s.isPlayingFromUser && s.userQueue.length > 0) return s.userQueue[0].id;
+    if (s.shuffle) return s.shuffledContext[s.shuffledIndex]?.id;
+    return s.contextQueue[s.contextIndex]?.id;
+  });
   const { playFromSearch } = usePlayer();
 
   // ─── Search history ──────────────────────────────────────────────────────
@@ -251,7 +256,13 @@ export const SearchScreen = () => {
               {history.map((entry) => (
                 <TouchableOpacity
                   key={entryKey(entry)}
-                  style={[styles.historyRow, { borderBottomColor: palette.border }]}
+                  style={[
+                    styles.historyRow,
+                    {
+                      borderBottomColor: palette.border,
+                      backgroundColor: (entry.type === 'song' && entry.id === currentSongId) ? palette.primary + "18" : "transparent"
+                    }
+                  ]}
                   activeOpacity={0.7}
                   onPress={() => {
                     if (entry.type === 'query') {
@@ -279,14 +290,24 @@ export const SearchScreen = () => {
                     />
                   ) : entry.type === 'song' ? (
                     <View style={[styles.historyThumb, { backgroundColor: palette.border, alignItems: 'center', justifyContent: 'center' }]}>
-                      <Ionicons name="musical-notes" size={14} color={palette.textSecondary} />
+                      <Ionicons
+                        name={entry.id === currentSongId ? "musical-notes" : "musical-notes-sharp"}
+                        size={14}
+                        color={entry.id === currentSongId ? palette.primary : palette.textSecondary}
+                      />
                     </View>
                   ) : (
                     <Ionicons name="time-outline" size={16} color={palette.textSecondary} style={{ marginRight: 10 }} />
                   )}
 
                   <View style={{ flex: 1, minWidth: 0 }}>
-                    <Text style={[styles.historyItem, { color: palette.text }]} numberOfLines={1}>
+                    <Text
+                      style={[
+                        styles.historyItem,
+                        { color: (entry.type === 'song' && entry.id === currentSongId) ? palette.primary : palette.text }
+                      ]}
+                      numberOfLines={1}
+                    >
                       {entry.type === 'query' ? entry.text : entry.name}
                     </Text>
                     {entry.type === 'song' && (
@@ -465,7 +486,13 @@ export const SearchScreen = () => {
                   {sortedSongs.map((item, index) => (
                     <TouchableOpacity
                       key={item.id}
-                      style={[styles.songRow, { paddingHorizontal: 16 }]}
+                      style={[
+                        styles.songRow,
+                        {
+                          paddingHorizontal: 16,
+                          backgroundColor: item.id === currentSongId ? palette.primary + "18" : "transparent"
+                        }
+                      ]}
                       activeOpacity={0.7}
                       onPress={() => {
                         // Save song to history
@@ -484,13 +511,17 @@ export const SearchScreen = () => {
                         <Image source={{ uri: item.imageUrl }} style={styles.thumb} />
                       ) : (
                         <View style={[styles.thumb, { backgroundColor: palette.backgroundSecondary, alignItems: 'center', justifyContent: 'center' }]}>
-                          <Ionicons name="musical-notes" size={20} color={palette.textSecondary} />
+                          <Ionicons
+                            name={item.id === currentSongId ? "musical-notes" : "musical-notes-sharp"}
+                            size={20}
+                            color={item.id === currentSongId ? palette.primary : palette.textSecondary}
+                          />
                         </View>
                       )}
 
                       {/* Song info */}
                       <View style={styles.songInfo}>
-                        <Text style={[styles.songTitle, { color: palette.text }]} numberOfLines={1}>{item.name}</Text>
+                        <Text style={[styles.songTitle, { color: item.id === currentSongId ? palette.primary : palette.text }]} numberOfLines={1}>{item.name}</Text>
                         <Text style={[styles.songMeta, { color: palette.textSecondary }]} numberOfLines={1}>
                           {item.primaryArtists}
                           {item.duration ? `  |  ${formatSeconds(item.duration)} mins` : ''}

@@ -23,6 +23,7 @@ import {
   getTrendingSongs,
   searchAlbums,
 } from "@/services/api/music.api";
+import { usePlayerStore } from "@/store/player.store";
 import { useThemeStore } from "@/store/theme.store";
 import { colors } from "@/theme/colors";
 import { Song } from "@/types/music.types";
@@ -82,17 +83,22 @@ const SongRow = React.memo(
     onPlay,
     onMore,
     palette,
+    isActive,
   }: {
     item: Song;
     index: number;
     onPlay: () => void;
     onMore: () => void;
-    palette: Palette;
+    palette: (typeof colors)[keyof typeof colors];
+    isActive: boolean;
   }) => (
     <TouchableOpacity
-      style={styles.songRow}
-      activeOpacity={0.7}
+      style={[
+        styles.songRow,
+        { backgroundColor: isActive ? palette.primary + "18" : "transparent" },
+      ]}
       onPress={onPlay}
+      activeOpacity={0.7}
     >
       {/* Album art */}
       {item.imageUrl ? (
@@ -105,9 +111,9 @@ const SongRow = React.memo(
           ]}
         >
           <Ionicons
-            name="musical-notes"
+            name={isActive ? "musical-notes" : "musical-notes-sharp"}
             size={20}
-            color={palette.textSecondary}
+            color={isActive ? palette.primary : palette.textSecondary}
           />
         </View>
       )}
@@ -115,7 +121,7 @@ const SongRow = React.memo(
       {/* Text */}
       <View style={styles.songInfo}>
         <Text
-          style={[styles.songTitle, { color: palette.text }]}
+          style={[styles.songTitle, { color: isActive ? palette.primary : palette.text }]}
           numberOfLines={1}
         >
           {item.name}
@@ -177,6 +183,11 @@ export const HomeScreen = () => {
   const [selectedSong, setSelectedSong] = useState<Song | null>(null);
   const [optionsVisible, setOptionsVisible] = useState(false);
   const { playFromSearch } = usePlayer();
+  const currentSongId = usePlayerStore((s) => {
+    if (s.isPlayingFromUser && s.userQueue.length > 0) return s.userQueue[0].id;
+    if (s.shuffle) return s.shuffledContext[s.shuffledIndex]?.id;
+    return s.contextQueue[s.contextIndex]?.id;
+  });
 
   // Suggested tab state
   const [suggestedSongs, setSuggestedSongs] = useState<Song[]>([]);
@@ -278,7 +289,13 @@ export const HomeScreen = () => {
                 key={song.id}
                 style={[
                   styles.quickCard,
-                  { backgroundColor: palette.backgroundSecondary },
+                  {
+                    backgroundColor: song.id === currentSongId
+                      ? palette.primary + "22"
+                      : palette.backgroundSecondary,
+                    borderWidth: song.id === currentSongId ? 1 : 0,
+                    borderColor: palette.primary + "44"
+                  },
                 ]}
                 activeOpacity={0.75}
                 onPress={() => {
@@ -309,7 +326,10 @@ export const HomeScreen = () => {
                   </View>
                 )}
                 <Text
-                  style={[styles.quickLabel, { color: palette.text }]}
+                  style={[
+                    styles.quickLabel,
+                    { color: song.id === currentSongId ? palette.primary : palette.text }
+                  ]}
                   numberOfLines={2}
                 >
                   {song.name}
@@ -423,7 +443,10 @@ export const HomeScreen = () => {
                       </View>
                     )}
                     <Text
-                      style={[styles.albumTitle, { color: palette.text }]}
+                      style={[
+                        styles.albumTitle,
+                        { color: item.id === currentSongId ? palette.primary : palette.text }
+                      ]}
                       numberOfLines={2}
                     >
                       {item.name}
@@ -531,6 +554,7 @@ export const HomeScreen = () => {
               onPlay={() => handlePlay(index)}
               onMore={() => handleMore(item)}
               palette={palette}
+              isActive={item.id === currentSongId}
             />
           )}
           contentContainerStyle={{ paddingBottom: 160 }}
