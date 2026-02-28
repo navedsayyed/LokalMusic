@@ -192,15 +192,21 @@ export const HomeScreen = () => {
   // Suggested tab state
   const [suggestedSongs, setSuggestedSongs] = useState<Song[]>([]);
   const [suggestedArtists, setSuggestedArtists] = useState<ArtistItem[]>([]);
+  const [trendingAlbums, setTrendingAlbums] = useState<AlbumItem[]>([]);
   const [suggestedLoading, setSuggestedLoading] = useState(false);
 
   // Fetch Suggested tab data on mount
   useEffect(() => {
     setSuggestedLoading(true);
-    Promise.all([getTrendingSongs("top hits 2024", 12), getPopularArtists()])
-      .then(([s, a]) => {
+    Promise.all([
+      getTrendingSongs("top hits 2024", 12),
+      getPopularArtists(),
+      searchAlbums("trending albums 2024", 10),
+    ])
+      .then(([s, a, alb]) => {
         setSuggestedSongs(s);
         setSuggestedArtists(a);
+        setTrendingAlbums(alb);
       })
       .catch(() => { })
       .finally(() => setSuggestedLoading(false));
@@ -465,6 +471,75 @@ export const HomeScreen = () => {
               />
             </>
           )}
+
+          {/* Trending Albums */}
+          {trendingAlbums.length > 0 && (
+            <>
+              <View style={styles.sectionHeader}>
+                <Text style={[styles.sectionTitle, { color: palette.text }]}>
+                  Trending Albums
+                </Text>
+              </View>
+              <FlatList
+                data={trendingAlbums}
+                keyExtractor={(i) => i.id}
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={{ paddingVertical: 8, paddingRight: 16 }}
+                renderItem={({ item }) => (
+                  <TouchableOpacity
+                    style={styles.albumCard}
+                    onPress={() =>
+                      navigation.navigate("Album", {
+                        albumId: item.id,
+                        albumName: item.name,
+                        albumImageUrl: item.imageUrl,
+                      })
+                    }
+                  >
+                    {item.imageUrl ? (
+                      <Image
+                        source={{ uri: item.imageUrl }}
+                        style={styles.albumImage}
+                      />
+                    ) : (
+                      <View
+                        style={[
+                          styles.albumImage,
+                          {
+                            backgroundColor: palette.backgroundSecondary,
+                            alignItems: "center",
+                            justifyContent: "center",
+                          },
+                        ]}
+                      >
+                        <Ionicons
+                          name="albums"
+                          size={24}
+                          color={palette.textSecondary}
+                        />
+                      </View>
+                    )}
+                    <Text
+                      style={[styles.albumTitle, { color: palette.text }]}
+                      numberOfLines={2}
+                    >
+                      {item.name}
+                    </Text>
+                    <Text
+                      style={[
+                        styles.albumArtist,
+                        { color: palette.textSecondary },
+                      ]}
+                      numberOfLines={1}
+                    >
+                      {item.artist}
+                    </Text>
+                  </TouchableOpacity>
+                )}
+              />
+            </>
+          )}
         </>
       )}
     </ScrollView>
@@ -642,6 +717,13 @@ export const HomeScreen = () => {
                 styles.gridCard,
                 { backgroundColor: palette.backgroundSecondary },
               ]}
+              onPress={() =>
+                navigation.navigate("Album", {
+                  albumId: item.id,
+                  albumName: item.name,
+                  albumImageUrl: item.imageUrl,
+                })
+              }
             >
               {item.imageUrl ? (
                 <Image
