@@ -423,18 +423,15 @@ export const SearchScreen = () => {
 
       {/* ── Toast notification ─────────────────────────────────────────────────── */}
       <Animated.View
-        style={[
-          styles.toast,
-          { backgroundColor: palette.card, borderColor: palette.border, opacity: toastOpacity },
-        ]}
+        style={[styles.toast, { opacity: toastOpacity }]}
         pointerEvents="box-none"
       >
-        <Ionicons name="checkmark-circle" size={18} color={palette.primary} />
-        <Text style={[styles.toastText, { color: palette.text }]} numberOfLines={1}>
+        <Ionicons name="checkmark-circle" size={18} color="#1DB954" />
+        <Text style={styles.toastText} numberOfLines={1}>
           {toastMsg}
         </Text>
         <TouchableOpacity onPress={() => setQueueVisible(true)} style={styles.toastBtn}>
-          <Text style={[styles.toastBtnText, { color: palette.primary }]}>View Queue</Text>
+          <Text style={styles.toastBtnText}>View Queue</Text>
         </TouchableOpacity>
       </Animated.View>
 
@@ -533,19 +530,20 @@ const styles = StyleSheet.create({
   songMeta: { fontSize: 12 },
   dotBtn: { width: 36, height: 36, alignItems: 'center', justifyContent: 'center' },
 
-  // Toast
+  // Toast – matches SongOptionsSheet dark pill
   toast: {
     position: 'absolute', bottom: 100, left: 16, right: 16,
     flexDirection: 'row', alignItems: 'center', gap: 10,
+    backgroundColor: '#1C1C1E',
     paddingHorizontal: 16, paddingVertical: 12,
-    borderRadius: 14, borderWidth: 1,
+    borderRadius: 14,
     elevation: 12, shadowColor: '#000',
-    shadowOpacity: 0.2, shadowRadius: 10,
+    shadowOpacity: 0.35, shadowRadius: 12,
     shadowOffset: { width: 0, height: 4 },
   },
-  toastText: { flex: 1, fontSize: 13, fontWeight: '500' },
+  toastText: { flex: 1, fontSize: 13, fontWeight: '500', color: '#fff' },
   toastBtn: { paddingHorizontal: 4 },
-  toastBtnText: { fontSize: 13, fontWeight: '700' },
+  toastBtnText: { fontSize: 13, fontWeight: '700', color: '#FF6B35' },
 
   // Search history
   historyCard: {
