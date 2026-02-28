@@ -32,6 +32,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { usePlayer } from "@/hooks/usePlayer";
 import { deleteSongDownload } from "@/services/player/download.service";
 import { Playlist, useLibraryStore } from "@/store/library.store";
+import { usePlayerStore } from "@/store/player.store";
 import { useThemeStore } from "@/store/theme.store";
 import { colors } from "@/theme/colors";
 
@@ -53,6 +54,11 @@ export const PlaylistScreen = () => {
   const [renameText, setRenameText] = useState("");
 
   const playlists = useLibraryStore((s) => s.playlists);
+  const currentSongId = usePlayerStore((s) => {
+    if (s.isPlayingFromUser && s.userQueue.length > 0) return s.userQueue[0].id;
+    if (s.shuffle) return s.shuffledContext[s.shuffledIndex]?.id;
+    return s.contextQueue[s.contextIndex]?.id;
+  });
   const likedSongs = useLibraryStore((s) => s.likedSongs);
   const downloads = useLibraryStore((s) => s.downloads);
   const createPlaylist = useLibraryStore((s) => s.createPlaylist);

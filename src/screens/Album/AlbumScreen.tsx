@@ -135,8 +135,11 @@ export const AlbumScreen = () => {
   const [optionsSong, setOptionsSong] = useState<Song | null>(null);
 
   const setContextAndPlay = usePlayerStore((s) => s.setContextAndPlay);
-  const getCurrentSong = usePlayerStore((s) => s.getCurrentSong);
-  const currentSongId = getCurrentSong()?.id;
+  const currentSongId = usePlayerStore((s) => {
+    if (s.isPlayingFromUser && s.userQueue.length > 0) return s.userQueue[0].id;
+    if (s.shuffle) return s.shuffledContext[s.shuffledIndex]?.id;
+    return s.contextQueue[s.contextIndex]?.id;
+  });
 
   const scrollY = useRef(new Animated.Value(0)).current;
 
