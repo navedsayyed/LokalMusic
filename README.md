@@ -18,7 +18,7 @@ A full-featured offline-ready music player built with **React Native (Expo)** po
 | ------------ | ------------------------------------------------------------------------------------------------------------------- |
 | GitHub Repo  | [github.com/navedsayyed/LokalMusic](https://github.com/navedsayyed/LokalMusic)                                      |
 | APK Download | [Expo Build](https://expo.dev/accounts/navedsayyed/projects/lokalmusic/builds/7618d742-8489-4807-8b05-4cbe1e3cd65b) |
-| Demo Video   | YouTube (coming soon)                                                                                               |
+| Demo Video   | YouTube (https://youtu.be/8eBGl1OJ_2M?si=RowrYjMdyuSeKy9J)                                                                                               |
 
 ---
 
@@ -53,7 +53,7 @@ npm run ios          # Launch on iOS simulator (macOS only)
 - Install **Expo Go** from the App Store / Play Store
 - Scan the QR code shown in your terminal
 
-> **Note:** No `.env` file is required — the app talks directly to the public JioSaavn API (`https://saavnapi.vercel.app`).
+> **Note:** No `.env` file is required — the app talks directly to the public JioSaavn API (`https://saavn.sumit.co/`).
 
 ---
 
@@ -216,7 +216,7 @@ This ensures clean separation of concerns, no duplicated states, predictable dat
 
 ### API Layer — JioSaavn (unofficial)
 
-Base URL: `https://saavnapi.vercel.app`
+Base URL: `https://saavn.sumit.co/`
 
 | Endpoint                 | Usage                            |
 | ------------------------ | -------------------------------- |
