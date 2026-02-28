@@ -42,7 +42,7 @@ export const PlayerScreen = () => {
   const navigation = useNavigation();
   const [optionsVisible, setOptionsVisible] = useState(false);
   const toggleLike = useLibraryStore((s) => s.toggleLike);
-  const isLiked = useLibraryStore((s) => s.isLiked);
+  const likedSongs = useLibraryStore((s) => s.likedSongs);
   const [lyricsVisible, setLyricsVisible] = useState(false);
   const [queueVisible, setQueueVisible] = useState(false);
   const setPlayerOpen = useUIStore((s) => s.setPlayerOpen);
@@ -67,7 +67,7 @@ export const PlayerScreen = () => {
   } = usePlayerStore();
 
   const current = getCurrentSong();
-  const liked = current ? isLiked(current.id) : false;
+  const liked = current ? likedSongs.some((s) => s.id === current.id) : false;
   const seekBarWidth = useRef(SCREEN_WIDTH - 64);
 
   const progress =

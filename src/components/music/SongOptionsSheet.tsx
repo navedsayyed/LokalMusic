@@ -70,16 +70,15 @@ export const SongOptionsSheet: React.FC<Props> = ({
   const navigation = useNavigation<any>();
   const enqueueNext = usePlayerStore((s) => s.enqueueNext);
   const enqueueToEnd = usePlayerStore((s) => s.enqueueToEnd);
-  const {
-    toggleLike,
-    isLiked,
-    isDownloaded,
-    playlists,
-    addSongToPlaylist,
-    removeSongFromPlaylist,
-  } = useLibraryStore();
-  const liked = song ? isLiked(song.id) : false;
-  const downloaded = song ? isDownloaded(song.id) : false;
+  const toggleLike = useLibraryStore((s) => s.toggleLike);
+  const likedSongs = useLibraryStore((s) => s.likedSongs);
+  const downloads = useLibraryStore((s) => s.downloads);
+  const playlists = useLibraryStore((s) => s.playlists);
+  const addSongToPlaylist = useLibraryStore((s) => s.addSongToPlaylist);
+  const removeSongFromPlaylist = useLibraryStore((s) => s.removeSongFromPlaylist);
+
+  const liked = song ? likedSongs.some((s) => s.id === song.id) : false;
+  const downloaded = song ? downloads.some((s) => s.id === song.id) : false;
   const [downloading, setDownloading] = useState(false);
   const [dlProgress, setDlProgress] = useState(0);
 
@@ -735,6 +734,8 @@ export const SongOptionsSheet: React.FC<Props> = ({
             contentContainerStyle={{ paddingBottom: 32 }}
             renderItem={({ item }: { item: Playlist }) => {
               const cover = item.songs.find((s: Song) => s.imageUrl)?.imageUrl;
+              const isAdded = song && item.songs.some((s: Song) => s.id === song.id);
+
               return (
                 <TouchableOpacity
                   style={[
@@ -742,9 +743,13 @@ export const SongOptionsSheet: React.FC<Props> = ({
                     { borderBottomColor: palette.border },
                   ]}
                   activeOpacity={0.7}
-                  onPress={() =>
-                    closePicker(() => addSongToPlaylist(item.id, song))
-                  }
+                  onPress={() => {
+                    if (!isAdded) {
+                      closePicker(() => addSongToPlaylist(item.id, song!));
+                    } else {
+                      closePicker(); // Just close if already added
+                    }
+                  }}
                 >
                   {cover ? (
                     <Image source={{ uri: cover }} style={styles.pickerThumb} />
@@ -780,11 +785,19 @@ export const SongOptionsSheet: React.FC<Props> = ({
                       {item.songs.length !== 1 ? "s" : ""}
                     </Text>
                   </View>
-                  <Ionicons
-                    name="add-circle-outline"
-                    size={22}
-                    color={palette.primary}
-                  />
+                  {isAdded ? (
+                    <Ionicons
+                      name="checkmark-circle"
+                      size={22}
+                      color="#1DB954"
+                    />
+                  ) : (
+                    <Ionicons
+                      name="add-circle-outline"
+                      size={22}
+                      color={palette.primary}
+                    />
+                  )}
                 </TouchableOpacity>
               );
             }}
