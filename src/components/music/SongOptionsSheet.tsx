@@ -365,6 +365,7 @@ export const SongOptionsSheet: React.FC<Props> = ({
       navigation.navigate("Album", {
         albumId: song.album.id,
         albumName: song.album.name,
+        albumImageUrl: song.album.imageUrl ?? song.imageUrl,
       });
     }
     onClose();
@@ -379,8 +380,7 @@ export const SongOptionsSheet: React.FC<Props> = ({
   const handleDetails = () => {
     Alert.alert(
       song.name,
-      `Artist: ${song.primaryArtists || "Unknown"}\nAlbum: ${
-        song.album?.name || "Unknown"
+      `Artist: ${song.primaryArtists || "Unknown"}\nAlbum: ${song.album?.name || "Unknown"
       }\nDuration: ${song.duration ? formatSeconds(song.duration) + " mins" : "Unknown"}`,
     );
     onClose();
@@ -414,16 +414,16 @@ export const SongOptionsSheet: React.FC<Props> = ({
     // "Remove from this Playlist" — only when opened from inside a specific playlist
     ...(playlistId
       ? [
-          {
-            icon: "remove-circle-outline" as const,
-            label: "Remove from this Playlist",
-            color: "#EF4444",
-            onPress: () => {
-              removeSongFromPlaylist(playlistId, song.id);
-              onClose();
-            },
+        {
+          icon: "remove-circle-outline" as const,
+          label: "Remove from this Playlist",
+          color: "#EF4444",
+          onPress: () => {
+            removeSongFromPlaylist(playlistId, song.id);
+            onClose();
           },
-        ]
+        },
+      ]
       : []),
     {
       icon: liked ? "heart-dislike-outline" : "heart-outline",
@@ -448,11 +448,6 @@ export const SongOptionsSheet: React.FC<Props> = ({
       icon: "list-outline",
       label: "Add to Playing Queue",
       onPress: handleAddToQueue,
-    },
-    {
-      icon: "play-skip-forward-outline",
-      label: "Play Next",
-      onPress: handlePlayNext,
     },
     {
       icon: "add-circle-outline",
@@ -484,17 +479,6 @@ export const SongOptionsSheet: React.FC<Props> = ({
       label: "Add to Blacklist",
       color: "#EF4444",
       onPress: handleBlacklist,
-    },
-    {
-      icon: "share-social-outline",
-      label: "Share",
-      onPress: handleShare,
-    },
-    {
-      icon: "trash-outline",
-      label: "Delete from Device",
-      color: "#EF4444",
-      onPress: handleDelete,
     },
   ];
 

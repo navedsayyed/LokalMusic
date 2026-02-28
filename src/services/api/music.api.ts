@@ -244,3 +244,17 @@ export const searchAlbums = async (query: string, limit = 10): Promise<AlbumItem
   }
 };
 
+
+// --- Album by ID ---
+export type AlbumDetail = { id: string; name: string; artist: string; imageUrl?: string; year?: string; songs: Song[]; };
+
+export const getAlbumById = async (albumId: string): Promise<AlbumDetail | null> => {
+  try {
+    const { data } = await apiClient.get<{ success: boolean; data: any }>('/api/albums', { params: { id: albumId } });
+    const raw = data?.data;
+    if (!raw) return null;
+    const artist = raw.artists?.primary?.map((a: any) => a.name).join(', ') ?? raw.primaryArtists ?? '';
+    const songs: Song[] = (raw.songs ?? []).map(mapSaavnSearchSong);
+    return { id: raw.id, name: raw.name, artist, imageUrl: pickBestImageFromUrls(raw.image), year: raw.year, songs };
+  } catch { return null; }
+};
