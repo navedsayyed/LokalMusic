@@ -18,7 +18,9 @@ import {
   Animated,
   FlatList,
   Image,
+  KeyboardAvoidingView,
   Modal,
+  Platform,
   Pressable,
   StyleSheet,
   Text,
@@ -653,120 +655,130 @@ export const PlaylistScreen = () => {
       <Modal
         visible={createModalVisible}
         transparent
-        animationType="slide"
+        animationType="fade"
         onRequestClose={() => setCreateModalVisible(false)}
       >
-        <Pressable
-          style={styles.backdrop}
-          onPress={() => setCreateModalVisible(false)}
-        />
-        <View style={[styles.sheet, { backgroundColor: palette.card }]}>
-          <Text style={[styles.sheetTitle, { color: palette.text }]}>
-            New Playlist
-          </Text>
-          <TextInput
-            style={[
-              styles.input,
-              {
-                color: palette.text,
-                borderColor: palette.border,
-                backgroundColor: palette.backgroundSecondary,
-              },
-            ]}
-            placeholder="Playlist name"
-            placeholderTextColor={palette.textSecondary}
-            value={newPlaylistName}
-            onChangeText={setNewPlaylistName}
-            autoFocus
-            autoCorrect={false}
-            autoCapitalize="words"
-            returnKeyType="done"
-            onSubmitEditing={handleCreate}
+        <KeyboardAvoidingView
+          style={styles.dialogOverlay}
+          behavior={Platform.OS === "ios" ? "padding" : "height"}
+        >
+          <Pressable
+            style={StyleSheet.absoluteFill}
+            onPress={() => setCreateModalVisible(false)}
           />
-          <View style={styles.sheetActions}>
-            <TouchableOpacity
-              style={[styles.sheetBtn, { borderColor: palette.border }]}
-              onPress={() => setCreateModalVisible(false)}
-            >
-              <Text style={[styles.sheetBtnText, { color: palette.text }]}>
-                Cancel
-              </Text>
-            </TouchableOpacity>
-            <TouchableOpacity
+          <View style={[styles.dialogCard, { backgroundColor: palette.card }]}>
+            <Text style={[styles.sheetTitle, { color: palette.text }]}>
+              New Playlist
+            </Text>
+            <TextInput
               style={[
-                styles.sheetBtn,
+                styles.input,
                 {
-                  backgroundColor: palette.primary,
-                  borderColor: palette.primary,
+                  color: palette.text,
+                  borderColor: palette.border,
+                  backgroundColor: palette.backgroundSecondary,
                 },
               ]}
-              onPress={handleCreate}
-            >
-              <Text style={[styles.sheetBtnText, { color: "#fff" }]}>
-                Create
-              </Text>
-            </TouchableOpacity>
+              placeholder="Playlist name"
+              placeholderTextColor={palette.textSecondary}
+              value={newPlaylistName}
+              onChangeText={setNewPlaylistName}
+              autoFocus
+              autoCorrect={false}
+              autoCapitalize="words"
+              returnKeyType="done"
+              onSubmitEditing={handleCreate}
+            />
+            <View style={styles.sheetActions}>
+              <TouchableOpacity
+                style={[styles.sheetBtn, { borderColor: palette.border }]}
+                onPress={() => setCreateModalVisible(false)}
+              >
+                <Text style={[styles.sheetBtnText, { color: palette.text }]}>
+                  Cancel
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[
+                  styles.sheetBtn,
+                  {
+                    backgroundColor: palette.primary,
+                    borderColor: palette.primary,
+                  },
+                ]}
+                onPress={handleCreate}
+              >
+                <Text style={[styles.sheetBtnText, { color: "#fff" }]}>
+                  Create
+                </Text>
+              </TouchableOpacity>
+            </View>
           </View>
-        </View>
+        </KeyboardAvoidingView>
       </Modal>
 
       {/* ── RENAME MODAL ── */}
       <Modal
         visible={!!renameTarget}
         transparent
-        animationType="slide"
+        animationType="fade"
         onRequestClose={() => setRenameTarget(null)}
       >
-        <Pressable
-          style={styles.backdrop}
-          onPress={() => setRenameTarget(null)}
-        />
-        <View style={[styles.sheet, { backgroundColor: palette.card }]}>
-          <Text style={[styles.sheetTitle, { color: palette.text }]}>
-            Rename Playlist
-          </Text>
-          <TextInput
-            style={[
-              styles.input,
-              {
-                color: palette.text,
-                borderColor: palette.border,
-                backgroundColor: palette.backgroundSecondary,
-              },
-            ]}
-            placeholder="Playlist name"
-            placeholderTextColor={palette.textSecondary}
-            value={renameText}
-            onChangeText={setRenameText}
-            autoFocus
-            autoCorrect={false}
-            autoCapitalize="words"
-            returnKeyType="done"
-            onSubmitEditing={handleRename}
+        <KeyboardAvoidingView
+          style={styles.dialogOverlay}
+          behavior={Platform.OS === "ios" ? "padding" : "height"}
+        >
+          <Pressable
+            style={StyleSheet.absoluteFill}
+            onPress={() => setRenameTarget(null)}
           />
-          <View style={styles.sheetActions}>
-            <TouchableOpacity
-              style={[styles.sheetBtn, { borderColor: palette.border }]}
-              onPress={() => setRenameTarget(null)}
-            >
-              <Text style={[styles.sheetBtnText, { color: palette.text }]}>
-                Cancel
-              </Text>
-            </TouchableOpacity>
-            <TouchableOpacity
+          <View style={[styles.dialogCard, { backgroundColor: palette.card }]}>
+            <Text style={[styles.sheetTitle, { color: palette.text }]}>
+              Rename Playlist
+            </Text>
+            <TextInput
               style={[
-                styles.sheetBtn,
+                styles.input,
                 {
-                  backgroundColor: palette.primary,
-                  borderColor: palette.primary,
+                  color: palette.text,
+                  borderColor: palette.border,
+                  backgroundColor: palette.backgroundSecondary,
                 },
               ]}
-              onPress={handleRename}
-            >
-              <Text style={[styles.sheetBtnText, { color: "#fff" }]}>Save</Text>
-            </TouchableOpacity>
+              placeholder="Playlist name"
+              placeholderTextColor={palette.textSecondary}
+              value={renameText}
+              onChangeText={setRenameText}
+              autoFocus
+              autoCorrect={false}
+              autoCapitalize="words"
+              returnKeyType="done"
+              onSubmitEditing={handleRename}
+            />
+            <View style={styles.sheetActions}>
+              <TouchableOpacity
+                style={[styles.sheetBtn, { borderColor: palette.border }]}
+                onPress={() => setRenameTarget(null)}
+              >
+                <Text style={[styles.sheetBtnText, { color: palette.text }]}>
+                  Cancel
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[
+                  styles.sheetBtn,
+                  {
+                    backgroundColor: palette.primary,
+                    borderColor: palette.primary,
+                  },
+                ]}
+                onPress={handleRename}
+              >
+                <Text style={[styles.sheetBtnText, { color: "#fff" }]}>Save</Text>
+              </TouchableOpacity>
+            </View>
           </View>
-        </View>
+        </KeyboardAvoidingView>
       </Modal>
     </SafeAreaView>
   );
@@ -838,6 +850,26 @@ const styles = StyleSheet.create({
   emptyBtnText: { color: "#fff", fontWeight: "700", fontSize: 14 },
 
   backdrop: { flex: 1, backgroundColor: "rgba(0,0,0,0.5)" },
+  // Centered dialog overlay
+  dialogOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.55)",
+    justifyContent: "center",
+    alignItems: "center",
+    paddingHorizontal: 24,
+  },
+  dialogCard: {
+    width: "100%",
+    borderRadius: 20,
+    padding: 24,
+    gap: 16,
+    elevation: 20,
+    shadowColor: "#000",
+    shadowOpacity: 0.3,
+    shadowRadius: 20,
+    shadowOffset: { width: 0, height: 8 },
+  },
+  // Keep old sheet for any other use
   sheet: {
     position: "absolute",
     bottom: 0,
