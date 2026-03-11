@@ -4,7 +4,7 @@ on:
   push:
     branches:
       - main
-  workflow_dispatch:  # Allow manual trigger from Actions tab
+  workflow_dispatch: # Allow manual trigger from Actions tab
 
 jobs:
   build:
@@ -19,8 +19,8 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
-          cache: 'npm'
+          node-version: "20"
+          cache: "npm"
 
       - name: Install dependencies
         run: npm ci --legacy-peer-deps
@@ -34,9 +34,9 @@ jobs:
       - name: Setup Java JDK
         uses: actions/setup-java@v4
         with:
-          distribution: 'temurin'
-          java-version: '17'
-          cache: 'gradle'
+          distribution: "temurin"
+          java-version: "17"
+          cache: "gradle"
 
       - name: Grant execute permission for gradlew
         run: chmod +x android/gradlew
@@ -112,32 +112,32 @@ jobs:
           name: LokalMusic v${{ steps.version.outputs.date }}
           body: |
             ## 📱 LokalMusic - Latest Build
-            
+
             **🎉 Click the APK below to download and install!**
-            
+
             ---
-            
+
             ### 📦 Download
             👇 Click **LokalMusic.apk** below to download
-            
+
             ### ℹ️ How to Install
             1. Download the APK file
             2. Open it on your Android phone
             3. Enable "Install from unknown sources" if asked
             4. Click Install
             5. Done! 🚀
-            
+
             ---
-            
+
             **Build Info:**
             - 📅 Date: ${{ steps.version.outputs.date }} at ${{ steps.version.outputs.time }} UTC
             - 🔗 Commit: ${{ steps.version.outputs.sha_short }}
             - 🏗️ Built by: GitHub Actions
-            
+
             ---
-            
+
             **Note:** Source code archives below are from the public App-Releases repo (empty), NOT your private app code! ✅
-            
+
             *Auto-generated release*
           files: |
             android/app/build/outputs/apk/release/LokalMusic.apk
