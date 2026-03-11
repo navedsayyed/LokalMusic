@@ -1,0 +1,165 @@
+name: Build Android APK (Expo)
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:  # Allow manual trigger from Actions tab
+
+jobs:
+  build:
+    name: Build APK
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci --legacy-peer-deps
+
+      - name: Setup Expo
+        run: npm install -g eas-cli
+
+      - name: Prebuild Android (Expo)
+        run: npx expo prebuild --platform android --clean
+
+      - name: Setup Java JDK
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+          cache: 'gradle'
+
+      - name: Grant execute permission for gradlew
+        run: chmod +x android/gradlew
+
+      - name: Cache Gradle packages
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+            android/.gradle
+            android/app/build
+          key: ${{ runner.os }}-gradle-${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties') }}
+          restore-keys: |
+            ${{ runner.os }}-gradle-
+
+      - name: Cache Node modules
+        uses: actions/cache@v4
+        with:
+          path: node_modules
+          key: ${{ runner.os }}-node-${{ hashFiles('**/package-lock.json') }}
+          restore-keys: |
+            ${{ runner.os }}-node-
+
+      - name: Build APK
+        run: |
+          cd android
+          ./gradlew assembleRelease \
+            --no-daemon \
+            --parallel \
+            --build-cache \
+            --configure-on-demand \
+            --max-workers=2 \
+            -Dorg.gradle.jvmargs="-Xmx2048m -XX:MaxMetaspaceSize=512m" \
+            -Dorg.gradle.caching=true \
+            -Dorg.gradle.configureondemand=true \
+            -Dkotlin.incremental=true
+
+      - name: Upload APK as Artifact (Backup)
+        uses: actions/upload-artifact@v4
+        with:
+          name: lokalmusic-release-apk
+          path: android/app/build/outputs/apk/release/*.apk
+          retention-days: 30
+
+      - name: Get version info
+        id: version
+        run: |
+          echo "date=$(date +'%Y.%m.%d')" >> $GITHUB_OUTPUT
+          echo "time=$(date +'%H%M')" >> $GITHUB_OUTPUT
+          echo "sha_short=$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
+
+      - name: Rename APK with app name
+        run: |
+          # Find the generated APK (Expo may generate app-release.apk or app-universal-release.apk)
+          if [ -f android/app/build/outputs/apk/release/app-universal-release.apk ]; then
+            cp android/app/build/outputs/apk/release/app-universal-release.apk android/app/build/outputs/apk/release/LokalMusic.apk
+          elif [ -f android/app/build/outputs/apk/release/app-release.apk ]; then
+            cp android/app/build/outputs/apk/release/app-release.apk android/app/build/outputs/apk/release/LokalMusic.apk
+          else
+            echo "APK not found in expected location"
+            ls -la android/app/build/outputs/apk/release/
+            exit 1
+          fi
+
+      - name: Create Public Release on App-Releases Repo
+        uses: softprops/action-gh-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.RELEASE_TOKEN }}
+        with:
+          repository: navedsayyed/App-Releases
+          tag_name: lokalmusic-v${{ steps.version.outputs.date }}-${{ steps.version.outputs.time }}
+          name: LokalMusic v${{ steps.version.outputs.date }}
+          body: |
+            ## 📱 LokalMusic - Latest Build
+            
+            **🎉 Click the APK below to download and install!**
+            
+            ---
+            
+            ### 📦 Download
+            👇 Click **LokalMusic.apk** below to download
+            
+            ### ℹ️ How to Install
+            1. Download the APK file
+            2. Open it on your Android phone
+            3. Enable "Install from unknown sources" if asked
+            4. Click Install
+            5. Done! 🚀
+            
+            ---
+            
+            **Build Info:**
+            - 📅 Date: ${{ steps.version.outputs.date }} at ${{ steps.version.outputs.time }} UTC
+            - 🔗 Commit: ${{ steps.version.outputs.sha_short }}
+            - 🏗️ Built by: GitHub Actions
+            
+            ---
+            
+            **Note:** Source code archives below are from the public App-Releases repo (empty), NOT your private app code! ✅
+            
+            *Auto-generated release*
+          files: |
+            android/app/build/outputs/apk/release/LokalMusic.apk
+          draft: false
+          prerelease: false
+
+      - name: Build Summary
+        if: success()
+        run: |
+          echo "## ✅ APK Built & Published!" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### 🌐 PUBLIC Download Links:" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Share these with ANYONE:**" >> $GITHUB_STEP_SUMMARY
+          echo "- 📱 Latest LokalMusic: https://github.com/navedsayyed/App-Releases/releases?q=lokalmusic&expanded=true" >> $GITHUB_STEP_SUMMARY
+          echo "- 🔗 Direct Download: https://github.com/navedsayyed/App-Releases/releases/download/lokalmusic-v${{ steps.version.outputs.date }}-${{ steps.version.outputs.time }}/LokalMusic.apk" >> $GITHUB_STEP_SUMMARY
+          echo "- 📚 All Apps: https://github.com/navedsayyed/App-Releases/releases" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          if [ -f android/app/build/outputs/apk/release/LokalMusic.apk ]; then
+            APK_SIZE=$(ls -lh android/app/build/outputs/apk/release/LokalMusic.apk | awk '{print $5}')
+            echo "**APK Size:** $APK_SIZE" >> $GITHUB_STEP_SUMMARY
+          fi
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "🔒 Your code stays PRIVATE in LokalMusic repo" >> $GITHUB_STEP_SUMMARY
+          echo "🌐 APK is PUBLIC in App-Releases repo" >> $GITHUB_STEP_SUMMARY
