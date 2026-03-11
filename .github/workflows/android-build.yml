@@ -61,7 +61,18 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-node-
 
+      - name: Generate Codegen Artifacts (New Architecture)
+        env:
+          NODE_ENV: production
+        run: |
+          cd android
+          ./gradlew generateCodegenArtifactsFromSchema \
+            --no-daemon \
+            -Dorg.gradle.jvmargs="-Xmx2048m -XX:MaxMetaspaceSize=512m"
+
       - name: Build APK
+        env:
+          NODE_ENV: production
         run: |
           cd android
           ./gradlew assembleRelease \
