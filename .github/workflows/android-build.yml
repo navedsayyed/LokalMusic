@@ -113,12 +113,12 @@ jobs:
             exit 1
           fi
 
-      - name: Create Public Release on App-Releases Repo
+      - name: Create Public Release on LokalMusic-Releases Repo
         uses: softprops/action-gh-release@v1
         env:
           GITHUB_TOKEN: ${{ secrets.RELEASE_TOKEN }}
         with:
-          repository: navedsayyed/App-Releases
+          repository: navedsayyed/LokalMusic-Releases
           tag_name: lokalmusic-v${{ steps.version.outputs.date }}-${{ steps.version.outputs.time }}
           name: LokalMusic v${{ steps.version.outputs.date }}
           body: |
@@ -147,7 +147,7 @@ jobs:
 
             ---
 
-            **Note:** Source code archives below are from the public App-Releases repo (empty), NOT your private app code! ✅
+            **Note:** Source code archives below are from the public LokalMusic-Releases repo, NOT your private app code! ✅
 
             *Auto-generated release*
           files: |
@@ -163,9 +163,9 @@ jobs:
           echo "### 🌐 PUBLIC Download Links:" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "**Share these with ANYONE:**" >> $GITHUB_STEP_SUMMARY
-          echo "- 📱 Latest LokalMusic: https://github.com/navedsayyed/App-Releases/releases?q=lokalmusic&expanded=true" >> $GITHUB_STEP_SUMMARY
-          echo "- 🔗 Direct Download: https://github.com/navedsayyed/App-Releases/releases/download/lokalmusic-v${{ steps.version.outputs.date }}-${{ steps.version.outputs.time }}/LokalMusic.apk" >> $GITHUB_STEP_SUMMARY
-          echo "- 📚 All Apps: https://github.com/navedsayyed/App-Releases/releases" >> $GITHUB_STEP_SUMMARY
+          echo "- 📱 Latest LokalMusic: https://github.com/navedsayyed/LokalMusic-Releases/releases/latest" >> $GITHUB_STEP_SUMMARY
+          echo "- 🔗 Direct Download: https://github.com/navedsayyed/LokalMusic-Releases/releases/latest/download/LokalMusic.apk" >> $GITHUB_STEP_SUMMARY
+          echo "- 📚 All Builds: https://github.com/navedsayyed/LokalMusic-Releases/releases" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           if [ -f android/app/build/outputs/apk/release/LokalMusic.apk ]; then
             APK_SIZE=$(ls -lh android/app/build/outputs/apk/release/LokalMusic.apk | awk '{print $5}')
@@ -173,4 +173,4 @@ jobs:
           fi
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "🔒 Your code stays PRIVATE in LokalMusic repo" >> $GITHUB_STEP_SUMMARY
-          echo "🌐 APK is PUBLIC in App-Releases repo" >> $GITHUB_STEP_SUMMARY
+          echo "🌐 APK is PUBLIC in LokalMusic-Releases repo" >> $GITHUB_STEP_SUMMARY
