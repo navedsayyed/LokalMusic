@@ -17,7 +17,7 @@ A full-featured offline-ready music player built with **React Native (Expo)** po
 | Resource     | URL                                                                                                                 |
 | ------------ | ------------------------------------------------------------------------------------------------------------------- |
 | GitHub Repo  | [github.com/navedsayyed/LokalMusic](https://github.com/navedsayyed/LokalMusic)                                      |
-| APK Download | [APK Direct Download](https://github.com/navedsayyed/LokalMusic-Releases/releases/latest/download/LokalMusic.apk) |
+| APK Download | [APK Direct Download](https://github.com/navedsayyed/LokalMusic/releases/latest/download/LokalMusic.apk) |
 | Demo Video   | [YouTube](https://youtu.be/8eBGl1OJ_2M?si=RowrYjMdyuSeKy9J)                                                                                               |
 
 ---

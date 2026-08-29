@@ -12,6 +12,10 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 60
 
+    # Required so the built-in GITHUB_TOKEN can create releases in THIS repo
+    permissions:
+      contents: write
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -114,12 +118,14 @@ jobs:
           fi
 
       - name: Create Public Release
-        uses: softprops/action-gh-release@v1
+        uses: softprops/action-gh-release@v2
         env:
-          GITHUB_TOKEN: ${{ secrets.RELEASE_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
+          # No `repository:` key -> release is created in the repo running this workflow
           tag_name: lokalmusic-v${{ steps.version.outputs.date }}-${{ steps.version.outputs.time }}
           name: LokalMusic v${{ steps.version.outputs.date }}
+          make_latest: true
           body: |
             ## 📱 LokalMusic - Latest Build
 
